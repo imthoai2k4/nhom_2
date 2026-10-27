@@ -35,8 +35,19 @@ def list_readings(
 
 
 @router.get("/last/{meter_id}", response_model=ReadingOut)
-def get_last_reading(meter_id: int, db: Session = Depends(get_db), _=Depends(get_current_user)):
+def get_last_reading(
+    meter_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
     """Chỉ số mới nhất của đồng hồ — dùng để pre-fill form nhập."""
+    meter = db.query(models.Meter).filter(models.Meter.id == meter_id).first()
+    if not meter:
+        raise HTTPException(404, "Không tìm thấy đồng hồ")
+    hh_filter = get_household_filter(current_user)
+    if hh_filter is not None and meter.household_id != hh_filter:
+        raise HTTPException(403, "Bạn không có quyền xem chỉ số của đồng hồ này")
+
     r = (
         db.query(models.Reading)
         .filter(models.Reading.meter_id == meter_id)
@@ -81,10 +92,18 @@ def get_history(
 
 
 @router.get("/{rid}", response_model=ReadingOut)
-def get_reading(rid: int, db: Session = Depends(get_db), _=Depends(get_current_user)):
+def get_reading(
+    rid: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
     r = db.query(models.Reading).filter(models.Reading.id == rid).first()
     if not r:
         raise HTTPException(404, "Không tìm thấy chỉ số")
+    meter = db.query(models.Meter).filter(models.Meter.id == r.meter_id).first()
+    hh_filter = get_household_filter(current_user)
+    if hh_filter is not None and meter and meter.household_id != hh_filter:
+        raise HTTPException(403, "Bạn không có quyền xem chỉ số này")
     return r
 
 

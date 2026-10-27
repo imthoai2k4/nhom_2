@@ -4,87 +4,115 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="Hệ thống quản lý hóa đơn điện nước hộ gia đình tích hợp AI — theo dõi chỉ số, hóa đơn, thanh toán và phân tích tiêu thụ." />
-  <title>Quản lý Điện Nước | AI Utility Manager</title>
+  <meta name="theme-color" content="#0a0f18" />
+  <title>Quản lý Điện Nước | UtilityAI</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/css/style.css" />
-  <link rel="stylesheet" href="/static/css/chat.css" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/style.css?v=1.2.0" />
+  <link rel="stylesheet" href="/static/css/chat.css?v=1.2.0" />
 </head>
 <body>
   <!-- Sidebar Navigation -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
-      <div class="logo">
-        <span class="logo-icon">⚡</span>
-        <div class="logo-text">
+      <a class="logo" href="#dashboard" aria-label="UtilityAI — về Dashboard">
+        <span class="logo-mark">⚡</span>
+        <span class="logo-text">
           <span class="logo-title">UtilityAI</span>
-          <span class="logo-subtitle">Quản lý Điện Nước</span>
-        </div>
-      </div>
+          <span class="logo-subtitle">Quản lý Điện Nước · v1.2</span>
+        </span>
+      </a>
     </div>
 
-    <nav class="sidebar-nav">
-      <a href="#dashboard" class="nav-item active" id="nav-dashboard">
-        <span class="nav-icon">📊</span>
-        <span>Dashboard</span>
-      </a>
-      <a href="#households" class="nav-item" id="nav-households">
-        <span class="nav-icon">🏠</span>
-        <span>Hộ / Phòng</span>
-      </a>
-      <a href="#meters" class="nav-item" id="nav-meters">
-        <span class="nav-icon">🔌</span>
-        <span>Đồng hồ</span>
-      </a>
-      <a href="#readings" class="nav-item" id="nav-readings">
-        <span class="nav-icon">📝</span>
-        <span>Chỉ số</span>
-      </a>
-      <a href="#invoices" class="nav-item" id="nav-invoices">
-        <span class="nav-icon">🧾</span>
-        <span>Hóa đơn</span>
-      </a>
-      <a href="#payments" class="nav-item" id="nav-payments">
-        <span class="nav-icon">💳</span>
-        <span>Thanh toán</span>
-      </a>
-      <a href="#prices" class="nav-item" id="nav-prices">
-        <span class="nav-icon">💰</span>
-        <span>Đơn giá</span>
-      </a>
-      <a href="#ai" class="nav-item" id="nav-ai">
-        <span class="nav-icon">🤖</span>
-        <span>Phân tích AI</span>
-        <span class="badge-new">AI</span>
-      </a>
+    <nav class="sidebar-nav" aria-label="Điều hướng chính">
+      <div class="nav-group">
+        <span class="nav-group-label">Tổng quan</span>
+        <a href="#dashboard" class="nav-item active" id="nav-dashboard">
+          <span class="nav-icon" aria-hidden="true">📊</span>
+          <span>Tổng quan</span>
+        </a>
+      </div>
+
+      <div class="nav-group">
+        <span class="nav-group-label" data-label-admin="Nghiệp vụ" data-label-user="Dữ liệu của tôi">Nghiệp vụ</span>
+        <a href="#households" class="nav-item" id="nav-households" data-admin-only>
+          <span class="nav-icon" aria-hidden="true">🏠</span>
+          <span>Hộ / Phòng</span>
+        </a>
+        <a href="#meters" class="nav-item" id="nav-meters" data-admin-only>
+          <span class="nav-icon" aria-hidden="true">🔌</span>
+          <span>Đồng hồ</span>
+        </a>
+        <a href="#readings" class="nav-item" id="nav-readings">
+          <span class="nav-icon" aria-hidden="true">📝</span>
+          <span>Chỉ số</span>
+        </a>
+      </div>
+
+      <div class="nav-group">
+        <span class="nav-group-label" data-label-admin="Tài chính" data-label-user="Hóa đơn &amp; thanh toán">Tài chính</span>
+        <a href="#invoices" class="nav-item" id="nav-invoices">
+          <span class="nav-icon" aria-hidden="true">🧾</span>
+          <span>Hóa đơn</span>
+        </a>
+        <a href="#payments" class="nav-item" id="nav-payments">
+          <span class="nav-icon" aria-hidden="true">💳</span>
+          <span>Thanh toán</span>
+        </a>
+        <a href="#prices" class="nav-item" id="nav-prices" data-admin-only>
+          <span class="nav-icon" aria-hidden="true">💰</span>
+          <span>Đơn giá</span>
+        </a>
+      </div>
+
+      <div class="nav-group">
+        <span class="nav-group-label">Trợ lý AI</span>
+        <a href="#ai" class="nav-item" id="nav-ai">
+          <span class="nav-icon" aria-hidden="true">🤖</span>
+          <span>Phân tích AI</span>
+          <span class="badge-new">AI</span>
+        </a>
+      </div>
     </nav>
 
     <div class="sidebar-footer">
-      <div class="user-info">
-        <span class="user-avatar">👤</span>
-        <div>
+      <div class="user-card">
+        <span class="user-avatar" id="user-avatar" aria-hidden="true">A</span>
+        <div class="user-meta">
           <div class="user-name" id="display-username">admin</div>
           <div class="user-role" id="display-role">Quản trị viên</div>
         </div>
+        <button class="icon-btn danger" type="button" onclick="doLogout()" title="Đăng xuất" aria-label="Đăng xuất">⏻</button>
       </div>
-      <a href="#login" class="nav-item" id="nav-login" onclick="doLogout()" style="margin-top:8px;font-size:0.82rem">
-        <span class="nav-icon">🚪</span>
-        <span>Đăng xuất</span>
-      </a>
     </div>
   </aside>
+
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar(false)"></div>
 
   <!-- Main content -->
   <main class="main-content" id="main-content">
     <!-- Top bar -->
     <header class="topbar">
       <div class="topbar-left">
-        <button class="menu-toggle" onclick="toggleSidebar()" aria-label="Toggle menu">☰</button>
-        <h1 class="page-title" id="page-title">Dashboard</h1>
+        <button class="menu-toggle" type="button" onclick="toggleSidebar()" aria-label="Mở menu điều hướng">☰</button>
+        <div class="topbar-heading">
+          <nav class="breadcrumb" aria-label="Breadcrumb">
+            <span>UtilityAI</span>
+            <span class="breadcrumb-sep">/</span>
+            <span class="breadcrumb-current" id="breadcrumb-current">Dashboard</span>
+          </nav>
+          <h1 class="page-title" id="page-title">Dashboard</h1>
+        </div>
       </div>
       <div class="topbar-right">
-        <div class="system-status" id="system-status">
-          <span class="status-dot"></span>
+        <span class="scope-chip" id="scope-chip" hidden></span>
+        <span class="topbar-date" id="topbar-date"></span>
+        <button class="btn btn-secondary btn-sm" type="button" onclick="Chat.togglePanel()" title="Mở trợ lý AI">
+          🤖 <span class="label">Trợ lý AI</span>
+        </button>
+        <div class="system-status" id="system-status" title="Trạng thái kết nối">
+          <span class="status-dot" aria-hidden="true"></span>
           <span>Hệ thống hoạt động</span>
         </div>
       </div>
@@ -92,7 +120,6 @@
 
     <!-- Page container — JS sẽ render nội dung vào đây -->
     <div class="page-container" id="page-container">
-      <!-- Loading state -->
       <div class="loading-screen" id="loading-screen">
         <div class="spinner"></div>
         <p>Đang kết nối hệ thống...</p>
@@ -100,20 +127,23 @@
     </div>
   </main>
 
+  <!-- Modal dùng chung cho các trang (chi tiết hóa đơn…) -->
+  <div id="app-modal"></div>
+
   <!-- Toast notifications -->
-  <div class="toast-container" id="toast-container"></div>
+  <div class="toast-container" id="toast-container" aria-live="polite"></div>
 
   <!-- Scripts -->
-  <script src="/static/js/api.js"></script>
-  <script src="/static/js/pages/auth.js"></script>
-  <script src="/static/js/pages/households.js"></script>
-  <script src="/static/js/pages/meters.js"></script>
-  <script src="/static/js/pages/readings.js"></script>
-  <script src="/static/js/pages/prices.js"></script>
-  <script src="/static/js/pages/invoices.js"></script>
-  <script src="/static/js/pages/payments.js"></script>
-  <script src="/static/js/pages/ai.js"></script>
-  <script src="/static/js/pages/chat.js"></script>
-  <script src="/static/js/app.js"></script>
+  <script src="/static/js/api.js?v=1.2.0"></script>
+  <script src="/static/js/pages/auth.js?v=1.2.0"></script>
+  <script src="/static/js/pages/households.js?v=1.2.0"></script>
+  <script src="/static/js/pages/meters.js?v=1.2.0"></script>
+  <script src="/static/js/pages/readings.js?v=1.2.0"></script>
+  <script src="/static/js/pages/prices.js?v=1.2.0"></script>
+  <script src="/static/js/pages/invoices.js?v=1.2.0"></script>
+  <script src="/static/js/pages/payments.js?v=1.2.0"></script>
+  <script src="/static/js/pages/ai.js?v=1.2.0"></script>
+  <script src="/static/js/pages/chat.js?v=1.2.0"></script>
+  <script src="/static/js/app.js?v=1.2.0"></script>
 </body>
 </html>

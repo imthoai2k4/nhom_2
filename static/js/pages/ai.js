@@ -1,40 +1,92 @@
 /** pages/ai.js — Phân tích AI tiêu thụ điện nước (Gemini) */
+let _aiResultText = "";
+let _aiHouseholdId = null;
+
 async function renderAI() {
   const c = document.getElementById("page-container");
-  c.innerHTML = `
-    <div style="margin-bottom:16px">
-      <div class="section-title" style="margin:0 0 4px 0">🤖 Phân tích AI — Tiêu thụ Điện Nước</div>
-      <div style="font-size:0.82rem;color:var(--text-secondary)">Sử dụng Gemini AI phân tích hóa đơn, cảnh báo bất thường và gợi ý tiết kiệm</div>
-    </div>
-    <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:end">
-      <div class="form-group" style="flex:1;min-width:180px;margin:0">
-        <label class="form-label">Chọn hộ / phòng</label>
-        <select id="ai-hh" class="form-control"><option value="">— Chọn hộ —</option></select>
-      </div>
-      <div class="form-group" style="width:120px;margin:0">
-        <label class="form-label">Số tháng</label>
-        <select id="ai-months" class="form-control">
-          <option value="3">3 tháng</option>
-          <option value="6" selected>6 tháng</option>
-          <option value="12">12 tháng</option>
-        </select>
-      </div>
-      <button class="btn btn-primary" onclick="runAIAnalysis()" id="ai-btn" style="height:40px">
-        🤖 Phân tích
-      </button>
-    </div>
-    <div id="ai-result"></div>`;
+  const isAdmin = Auth.isAdmin();
 
-  // Load danh sách hộ (đã filter theo quyền ở backend)
+  c.innerHTML = `
+    <div class="ai-hero">
+      <div class="ai-hero-icon" aria-hidden="true">🤖</div>
+      <div>
+        <div class="ai-hero-title">Phân tích tiêu thụ bằng AI</div>
+        <div class="ai-hero-sub">Gemini AI đọc dữ liệu hóa đơn để phát hiện bất thường, giải thích biến động và gợi ý cách tiết kiệm điện nước.</div>
+      </div>
+    </div>
+
+    <div class="panel ai-panel">
+      <div class="ai-form-row">
+        ${isAdmin ? `
+        <div class="form-group">
+          <label class="form-label" for="ai-hh">Hộ / Phòng cần phân tích</label>
+          <select id="ai-hh" class="form-control">
+            <option value="">— Chọn hộ —</option>
+          </select>
+        </div>` : `
+        <div class="form-group">
+          <label class="form-label">Hộ / Phòng được phân tích</label>
+          <input id="ai-hh-display" class="form-control" readonly value="Đang tải…">
+        </div>`}
+        <div class="form-group ai-months">
+          <label class="form-label" for="ai-months">Khoảng thời gian</label>
+          <select id="ai-months" class="form-control">
+            <option value="3">3 tháng</option>
+            <option value="6" selected>6 tháng</option>
+            <option value="12">12 tháng</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" type="button" onclick="runAIAnalysis()" id="ai-btn" style="height:38px">
+          ✨ Phân tích ngay
+        </button>
+      </div>
+      <div class="form-hint" style="margin-top:10px">${isAdmin
+        ? "Mẹo: chọn khoảng 6–12 tháng để AI so sánh xu hướng chính xác hơn."
+        : "AI chỉ phân tích dữ liệu của hộ bạn. Chọn 6–12 tháng để so sánh xu hướng chính xác hơn."}</div>
+    </div>
+
+    <div class="ai-feature-grid">
+      <div class="ai-feature">
+        <span class="ai-feature-icon" aria-hidden="true">🔍</span>
+        <div>
+          <div class="ai-feature-title">Phát hiện bất thường</div>
+          <div class="ai-feature-desc">So sánh chỉ số từng kỳ và cảnh báo khi mức tiêu thụ tăng đột biến.</div>
+        </div>
+      </div>
+      <div class="ai-feature">
+        <span class="ai-feature-icon" aria-hidden="true">📈</span>
+        <div>
+          <div class="ai-feature-title">Xu hướng tiêu thụ</div>
+          <div class="ai-feature-desc">Nhìn rõ điện và nước đang tăng hay giảm qua từng tháng.</div>
+        </div>
+      </div>
+      <div class="ai-feature">
+        <span class="ai-feature-icon" aria-hidden="true">💡</span>
+        <div>
+          <div class="ai-feature-title">Gợi ý tiết kiệm</div>
+          <div class="ai-feature-desc">Đề xuất hành động cụ thể, phù hợp với mức sử dụng thực tế.</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="ai-result" aria-live="polite"></div>`;
+
   try {
     const hhs = await Api.get("/api/households");
-    const sel = document.getElementById("ai-hh");
-    hhs.forEach(h => {
-      sel.innerHTML += `<option value="${h.id}">${h.name} — ${h.owner_name || ""}</option>`;
-    });
-    // Nếu user chỉ có 1 hộ → tự chọn
-    if (hhs.length === 1) {
-      sel.value = hhs[0].id;
+    const list = Array.isArray(hhs) ? hhs : [];
+    const active = isAdmin ? list.filter(h => h.status !== "inactive") : list;
+
+    if (isAdmin) {
+      const sel = document.getElementById("ai-hh");
+      if (!sel) return;
+      sel.innerHTML = `<option value="">— Chọn hộ —</option>` +
+        active.map(h => `<option value="${h.id}">${escapeHtml(h.name)} — ${escapeHtml(h.owner_name || "chưa có chủ hộ")}</option>`).join("");
+      if (active.length === 1) sel.value = active[0].id;
+    } else {
+      const hh = active[0] || null;
+      _aiHouseholdId = hh?.id || null;
+      const display = document.getElementById("ai-hh-display");
+      if (display) display.value = hh ? `${hh.name} — ${hh.owner_name || "chưa có chủ hộ"}` : "Chưa gắn hộ/phòng";
     }
   } catch {
     showToast("Không thể tải danh sách hộ", "error");
@@ -42,21 +94,20 @@ async function renderAI() {
 }
 
 async function runAIAnalysis() {
-  const hhId = document.getElementById("ai-hh").value;
+  const hhId = document.getElementById("ai-hh")?.value || _aiHouseholdId;
   const months = document.getElementById("ai-months").value;
   const resultDiv = document.getElementById("ai-result");
   const btn = document.getElementById("ai-btn");
 
   if (!hhId) { showToast("Vui lòng chọn hộ", "warning"); return; }
 
-  // Loading state
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px"></span> Đang phân tích...';
+  btn.innerHTML = '<span class="spinner" style="width:15px;height:15px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px"></span> Đang phân tích…';
   resultDiv.innerHTML = `
-    <div class="table-wrapper" style="padding:40px;text-align:center">
-      <div class="spinner" style="margin:0 auto 12px"></div>
-      <div style="color:var(--text-secondary);font-size:0.88rem">🤖 AI Gemini đang phân tích dữ liệu tiêu thụ...</div>
-      <div style="color:var(--text-muted);font-size:0.78rem;margin-top:6px">Quá trình này có thể mất vài giây</div>
+    <div class="ai-loading-card">
+      <div class="spinner" style="margin:0 auto 14px"></div>
+      <div style="color:var(--text-secondary);font-size:0.88rem">🤖 Gemini AI đang đọc dữ liệu tiêu thụ…</div>
+      <div style="color:var(--text-muted);font-size:0.76rem;margin-top:6px">Quá trình này có thể mất vài giây</div>
     </div>`;
 
   try {
@@ -65,59 +116,62 @@ async function runAIAnalysis() {
       months: parseInt(months),
     });
 
-    // Render kết quả (markdown-like → HTML đơn giản)
-    const htmlContent = simpleMarkdown(res.analysis);
+    _aiResultText = res.analysis || "";
+    const htmlContent = simpleMarkdown(_aiResultText);
 
     resultDiv.innerHTML = `
-      <div class="table-wrapper" style="padding:24px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+      <div class="ai-response-card">
+        <div class="ai-response-header">
           <div>
-            <div style="font-size:1.05rem;font-weight:700;color:var(--text-primary)">
-              🤖 Kết quả phân tích — ${res.household_name}
-            </div>
-            <div style="font-size:0.78rem;color:var(--text-muted);margin-top:2px">
-              Dữ liệu: ${res.data_points} điểm | Mô hình: Gemini AI
-            </div>
+            <div class="ai-response-title">🤖 Kết quả phân tích · ${escapeHtml(res.household_name || "")}</div>
+            <div class="ai-response-meta">${res.data_points || 0} điểm dữ liệu · ${months} tháng · Gemini AI</div>
           </div>
-          <span class="badge badge-success">✅ Hoàn tất</span>
+          <div class="meta-row">
+            <span class="badge badge-success">✅ Hoàn tất</span>
+            <button class="btn btn-secondary btn-sm" type="button" onclick="copyAIResult()">📋 Sao chép</button>
+          </div>
         </div>
-        <div class="ai-content" style="line-height:1.7;font-size:0.88rem;color:var(--text-primary)">
-          ${htmlContent}
-        </div>
+        <div class="ai-content" id="ai-content">${htmlContent}</div>
       </div>`;
-
   } catch (e) {
     resultDiv.innerHTML = `
-      <div class="table-wrapper" style="padding:24px;text-align:center">
-        <div style="font-size:2rem;margin-bottom:8px">❌</div>
-        <div style="color:var(--accent-red);font-weight:600;margin-bottom:4px">Lỗi phân tích</div>
-        <div style="color:var(--text-secondary);font-size:0.83rem">${e.detail || e.message || "Không thể kết nối AI"}</div>
+      <div class="panel" style="border-color:rgba(248,113,113,.28)">
+        <div class="empty-state">
+          <div class="empty-state-icon" style="background:rgba(248,113,113,.1);border-color:rgba(248,113,113,.24)">⚠️</div>
+          <div class="empty-state-title" style="color:var(--accent-red)">Không thể phân tích</div>
+          <div class="empty-state-text">${escapeHtml(e.detail || e.message || "Không thể kết nối AI. Kiểm tra GEMINI_API_KEY trong .env.")}</div>
+          <button class="btn btn-secondary" type="button" onclick="runAIAnalysis()">🔄 Thử lại</button>
+        </div>
       </div>`;
     showToast("Lỗi phân tích AI", "error");
   } finally {
     btn.disabled = false;
-    btn.innerHTML = "🤖 Phân tích";
+    btn.innerHTML = "✨ Phân tích ngay";
+  }
+}
+
+async function copyAIResult() {
+  if (!_aiResultText) return;
+  try {
+    await navigator.clipboard.writeText(_aiResultText);
+    showToast("Đã sao chép kết quả phân tích", "success");
+  } catch {
+    showToast("Trình duyệt không cho phép sao chép", "warning");
   }
 }
 
 /**
- * Chuyển markdown đơn giản thành HTML
+ * Chuyển markdown đơn giản thành HTML (đã escape để an toàn)
  */
 function simpleMarkdown(text) {
   if (!text) return "";
-  return text
-    // Headers
-    .replace(/^### (.+)$/gm, '<h4 style="color:var(--accent-blue);margin:16px 0 6px;font-size:0.95rem">$1</h4>')
-    .replace(/^## (.+)$/gm, '<h3 style="color:var(--text-primary);margin:18px 0 8px;font-size:1.05rem">$1</h3>')
-    // Bold
-    .replace(/\*\*(.+?)\*\*/g, '<strong style="color:var(--text-primary)">$1</strong>')
-    // Italic
-    .replace(/\*(.+?)\*/g, '<em style="color:var(--text-secondary)">$1</em>')
-    // Blockquote
-    .replace(/^> (.+)$/gm, '<blockquote style="border-left:3px solid var(--accent-blue);padding:6px 12px;margin:8px 0;color:var(--text-secondary);font-size:0.83rem;background:var(--bg-secondary);border-radius:4px">$1</blockquote>')
-    // List items
-    .replace(/^- (.+)$/gm, '<div style="padding:3px 0 3px 16px;position:relative"><span style="position:absolute;left:0">•</span> $1</div>')
-    // Line breaks
-    .replace(/\n\n/g, '<div style="height:8px"></div>')
+  return escapeHtml(text)
+    .replace(/^### (.+)$/gm, '<h4>$1</h4>')
+    .replace(/^## (.+)$/gm, '<h3>$1</h3>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>')
+    .replace(/^- (.+)$/gm, '<div class="ai-list-item">$1</div>')
+    .replace(/\n\n/g, '<div class="ai-spacer"></div>')
     .replace(/\n/g, '<br>');
 }

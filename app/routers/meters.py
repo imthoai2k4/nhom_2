@@ -3,7 +3,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.auth import get_current_user, require_admin
+from app.auth import get_current_user, require_admin, get_household_filter
 from app.schemas import MeterCreate, MeterUpdate, MeterOut
 from app import models
 
@@ -15,10 +15,14 @@ def list_meters(
     household_id: Optional[int] = Query(None),
     meter_type: Optional[str] = Query(None),
     db: Session = Depends(get_db),
-    _=Depends(get_current_user),
+    current_user: models.User = Depends(get_current_user),
 ):
     q = db.query(models.Meter)
-    if household_id:
+    # User chỉ thấy đồng hồ của hộ mình
+    hh_filter = get_household_filter(current_user)
+    if hh_filter is not None:
+        q = q.filter(models.Meter.household_id == hh_filter)
+    elif household_id:
         q = q.filter(models.Meter.household_id == household_id)
     if meter_type:
         q = q.filter(models.Meter.meter_type == meter_type)
@@ -26,10 +30,17 @@ def list_meters(
 
 
 @router.get("/{mid}", response_model=MeterOut)
-def get_meter(mid: int, db: Session = Depends(get_db), _=Depends(get_current_user)):
+def get_meter(
+    mid: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
     m = db.query(models.Meter).filter(models.Meter.id == mid).first()
     if not m:
         raise HTTPException(404, "Không tìm thấy đồng hồ")
+    hh_filter = get_household_filter(current_user)
+    if hh_filter is not None and m.household_id != hh_filter:
+        raise HTTPException(403, "Bạn không có quyền xem đồng hồ này")
     return m
 
 

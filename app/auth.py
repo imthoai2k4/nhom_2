@@ -8,6 +8,8 @@ Roles:
   user  → chỉ xem thông tin hộ của mình, xem hóa đơn, dùng AI phân tích
 """
 import os
+from datetime import datetime
+from typing import Optional
 from fastapi import Header, HTTPException, status, Depends
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
@@ -44,6 +46,9 @@ def verify_credentials(username: str, password: str, db: Session) -> models.User
             role="admin",
             full_name="Quản trị viên",
             household_id=None,
+            is_active=True,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
         )
         return fake_admin
 
@@ -54,19 +59,28 @@ def verify_credentials(username: str, password: str, db: Session) -> models.User
 
 
 def get_current_user(
-    x_username: str = Header(default="admin", alias="X-Username"),
-    x_password: str = Header(default="admin123", alias="X-Password"),
+    x_username: Optional[str] = Header(default=None, alias="X-Username"),
+    x_password: Optional[str] = Header(default=None, alias="X-Password"),
     db: Session = Depends(get_db),
 ) -> models.User:
     """
     Dependency: lấy thông tin user hiện tại từ request headers.
     Frontend gửi header X-Username và X-Password theo mỗi request.
 
+    Thiếu header → 401 (không còn fallback admin mặc định, tránh lộ dữ liệu
+    khi frontend chưa đăng nhập).
+
     Sử dụng trong router:
         @router.get("/...")
         def endpoint(current_user = Depends(get_current_user)):
             ...
     """
+    if not x_username or not x_password:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Vui lòng đăng nhập để tiếp tục",
+            headers={"WWW-Authenticate": "X-Username"},
+        )
     return verify_credentials(x_username, x_password, db)
 
 

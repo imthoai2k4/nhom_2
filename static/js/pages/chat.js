@@ -56,26 +56,18 @@ const Chat = (() => {
           <div class="chat-welcome-icon">🤖</div>
           <div class="chat-welcome-title">Xin chào!</div>
           <div class="chat-welcome-sub">Tôi là trợ lý AI của hệ thống quản lý điện nước. Bạn có thể hỏi tôi về số điện thoại hộ gia đình, số đồng hồ, hóa đơn, cảnh báo bất thường…</div>
-          <div class="chat-welcome-suggest">
-            <button data-q="SĐT hộ 101?">🔍 SĐT hộ 101?</button>
-            <button data-q="Số đồng hồ điện phòng 102?">⚡ Số đồng hồ phòng 102?</button>
-            <button data-q="Hóa đơn tháng 7 phòng 101?">🧾 Hóa đơn phòng 101?</button>
-            <button data-q="Có cảnh báo bất thường nào không?">⚠️ Cảnh báo bất thường?</button>
-          </div>
+          <div class="chat-welcome-suggest" id="chat-welcome-suggest"></div>
         </div>
       </div>
 
-      <div class="chat-quick" id="chat-quick">
-        <button class="chat-quick-btn" data-q="SĐT hộ 101?">🔍 SĐT hộ 101</button>
-        <button class="chat-quick-btn" data-q="Công nợ phòng 102?">💳 Công nợ</button>
-        <button class="chat-quick-btn" data-q="Có cảnh báo nào?">⚠️ Cảnh báo</button>
-      </div>
+      <div class="chat-quick" id="chat-quick"></div>
 
       <div class="chat-input-area">
         <textarea
           id="chat-input"
           class="chat-input"
-          placeholder="Nhập câu hỏi... (Enter để gửi, Shift+Enter xuống dòng)"
+          placeholder="Nhập câu hỏi… (Enter gửi)"
+          title="Enter để gửi, Shift+Enter để xuống dòng"
           rows="1"
         ></textarea>
         <button class="chat-send" id="chat-send" title="Gửi">➤</button>
@@ -99,15 +91,57 @@ const Chat = (() => {
     });
     input.addEventListener("input", autoResize);
 
-    // Gợi ý nhanh
-    panel.querySelectorAll("[data-q]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const q = btn.dataset.q;
-        input.value = q;
-        autoResize();
-        sendCurrentMessage();
-      });
+    // Gợi ý nhanh — dùng event delegation vì danh sách được dựng lại theo vai trò
+    panel.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-q]");
+      if (!btn) return;
+      input.value = btn.dataset.q;
+      autoResize();
+      sendCurrentMessage();
     });
+
+    applyRoleSuggestions();
+  }
+
+  /** Gợi ý câu hỏi phù hợp với vai trò hiện tại (admin xem mọi hộ, user xem hộ mình). */
+  function applyRoleSuggestions() {
+    const isAdmin = Auth.isAdmin();
+    const welcome = document.getElementById("chat-welcome-suggest");
+    const quick = document.getElementById("chat-quick");
+    if (!welcome || !quick) return;
+
+    const welcomeItems = isAdmin
+      ? [
+          ["SĐT hộ 101?", "🔍 SĐT hộ 101?"],
+          ["Số đồng hồ điện phòng 102?", "⚡ Đồng hồ phòng 102?"],
+          ["Hóa đơn gần nhất của hộ 101?", "🧾 Hóa đơn phòng 101?"],
+          ["Có cảnh báo bất thường nào không?", "⚠️ Cảnh báo bất thường?"],
+        ]
+      : [
+          ["Hóa đơn gần nhất của tôi?", "🧾 Hóa đơn của tôi"],
+          ["Công nợ hiện tại của tôi?", "💳 Công nợ của tôi"],
+          ["Mức tiêu thụ điện nước gần đây?", "📈 Tiêu thụ gần đây"],
+          ["Có cảnh báo bất thường nào không?", "⚠️ Cảnh báo bất thường?"],
+        ];
+
+    const quickItems = isAdmin
+      ? [
+          ["SĐT hộ 101?", "🔍 SĐT hộ 101"],
+          ["Công nợ phòng 102?", "💳 Công nợ"],
+          ["Có cảnh báo nào?", "⚠️ Cảnh báo"],
+        ]
+      : [
+          ["Hóa đơn của tôi?", "🧾 Hóa đơn của tôi"],
+          ["Công nợ của tôi?", "💳 Công nợ"],
+          ["Có cảnh báo nào?", "⚠️ Cảnh báo"],
+        ];
+
+    welcome.innerHTML = welcomeItems
+      .map(([q, label]) => `<button data-q="${q}">${label}</button>`)
+      .join("");
+    quick.innerHTML = quickItems
+      .map(([q, label]) => `<button class="chat-quick-btn" data-q="${q}">${label}</button>`)
+      .join("");
   }
 
   function autoResize(e) {
@@ -121,7 +155,10 @@ const Chat = (() => {
   function togglePanel() {
     isOpen = !isOpen;
     const panel = document.getElementById("chat-panel");
+    // Ẩn nút mở chat khi cửa sổ đang mở để không đè lên nút gửi tin nhắn
+    document.body.classList.toggle("chat-open", isOpen);
     if (isOpen) {
+      applyRoleSuggestions();
       panel.classList.add("open");
       // focus input
       setTimeout(() => document.getElementById("chat-input")?.focus(), 250);
@@ -135,6 +172,14 @@ const Chat = (() => {
   function newSession() {
     currentSessionId = null;
     renderMessages([]);
+    closeSessionsDrawer();
+  }
+
+  /** Đóng cửa sổ chat và hiện lại nút mở chat. */
+  function closePanel() {
+    isOpen = false;
+    document.body.classList.remove("chat-open");
+    document.getElementById("chat-panel")?.classList.remove("open");
     closeSessionsDrawer();
   }
 
@@ -361,7 +406,7 @@ const Chat = (() => {
     } catch { return ""; }
   }
 
-  return { mount, togglePanel, newSession };
+  return { mount, togglePanel, newSession, close: closePanel };
 })();
 
 // Auto-mount khi DOM sẵn sàng

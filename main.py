@@ -46,6 +46,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# ── Không cache giao diện (tránh trình duyệt giữ CSS/JS cũ sau khi cập nhật) ──
+@app.middleware("http")
+async def no_cache_ui_assets(request, call_next):
+    response = await call_next(request)
+    path = request.url.path
+    if path == "/" or path.startswith("/static/"):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
 # ── Routers KT2 + KT3 ────────────────────────────────────────────────────────
 from app.routers import auth, households, meters, readings, prices, invoices, payments
 from app.routers import ai_analysis, chat
@@ -92,6 +104,6 @@ async def system_info():
 
 if __name__ == "__main__":
     import webbrowser, threading
-    # Tự động mở trình duyệt sau 1.5 giây
-    threading.Timer(1.5, lambda: webbrowser.open("http://localhost:8000")).start()
+    # Mở trình duyệt với tham số phiên bản để không dùng lại HTML cũ trong cache
+    threading.Timer(1.5, lambda: webbrowser.open("http://localhost:8000/?v=1.2.0")).start()
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
