@@ -1,0 +1,10 @@
+.env
+*.db
+*.sqlite
+*.sqlite3
+Admin_User_login.txt
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/

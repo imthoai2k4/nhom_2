@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Hệ thống quản lý hóa đơn điện nước hộ gia đình tích hợp AI — theo dõi chỉ số, hóa đơn, thanh toán và phân tích tiêu thụ." />
+  <title>Quản lý Điện Nước | AI Utility Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <link rel="stylesheet" href="/static/css/chat.css" />
+</head>
+<body>
+  <!-- Sidebar Navigation -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">
+        <span class="logo-icon">⚡</span>
+        <div class="logo-text">
+          <span class="logo-title">UtilityAI</span>
+          <span class="logo-subtitle">Quản lý Điện Nước</span>
+        </div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a href="#dashboard" class="nav-item active" id="nav-dashboard">
+        <span class="nav-icon">📊</span>
+        <span>Dashboard</span>
+      </a>
+      <a href="#households" class="nav-item" id="nav-households">
+        <span class="nav-icon">🏠</span>
+        <span>Hộ / Phòng</span>
+      </a>
+      <a href="#meters" class="nav-item" id="nav-meters">
+        <span class="nav-icon">🔌</span>
+        <span>Đồng hồ</span>
+      </a>
+      <a href="#readings" class="nav-item" id="nav-readings">
+        <span class="nav-icon">📝</span>
+        <span>Chỉ số</span>
+      </a>
+      <a href="#invoices" class="nav-item" id="nav-invoices">
+        <span class="nav-icon">🧾</span>
+        <span>Hóa đơn</span>
+      </a>
+      <a href="#payments" class="nav-item" id="nav-payments">
+        <span class="nav-icon">💳</span>
+        <span>Thanh toán</span>
+      </a>
+      <a href="#prices" class="nav-item" id="nav-prices">
+        <span class="nav-icon">💰</span>
+        <span>Đơn giá</span>
+      </a>
+      <a href="#ai" class="nav-item" id="nav-ai">
+        <span class="nav-icon">🤖</span>
+        <span>Phân tích AI</span>
+        <span class="badge-new">AI</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <span class="user-avatar">👤</span>
+        <div>
+          <div class="user-name" id="display-username">admin</div>
+          <div class="user-role" id="display-role">Quản trị viên</div>
+        </div>
+      </div>
+      <a href="#login" class="nav-item" id="nav-login" onclick="doLogout()" style="margin-top:8px;font-size:0.82rem">
+        <span class="nav-icon">🚪</span>
+        <span>Đăng xuất</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main-content" id="main-content">
+    <!-- Top bar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="menu-toggle" onclick="toggleSidebar()" aria-label="Toggle menu">☰</button>
+        <h1 class="page-title" id="page-title">Dashboard</h1>
+      </div>
+      <div class="topbar-right">
+        <div class="system-status" id="system-status">
+          <span class="status-dot"></span>
+          <span>Hệ thống hoạt động</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Page container — JS sẽ render nội dung vào đây -->
+    <div class="page-container" id="page-container">
+      <!-- Loading state -->
+      <div class="loading-screen" id="loading-screen">
+        <div class="spinner"></div>
+        <p>Đang kết nối hệ thống...</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- Toast notifications -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/pages/auth.js"></script>
+  <script src="/static/js/pages/households.js"></script>
+  <script src="/static/js/pages/meters.js"></script>
+  <script src="/static/js/pages/readings.js"></script>
+  <script src="/static/js/pages/prices.js"></script>
+  <script src="/static/js/pages/invoices.js"></script>
+  <script src="/static/js/pages/payments.js"></script>
+  <script src="/static/js/pages/ai.js"></script>
+  <script src="/static/js/pages/chat.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
