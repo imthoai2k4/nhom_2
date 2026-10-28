@@ -202,10 +202,10 @@ def chat_completion_sync(
     *,
     temperature: float = 0.5,
     max_tokens: Optional[int] = None,
-) -> Optional[str]:
+) -> Optional[ChatResult]:
     """
-    Phiên bản đồng bộ dùng cho chat service (nếu cần).
-    Trả None khi chưa cấu hình hoặc lỗi — nơi gọi tự fallback rule-based.
+    Phiên bản đồng bộ dùng cho chat service.
+    Trả None khi chưa cấu hình, lỗi hoặc response rỗng — nơi gọi tự fallback rule-based.
     """
     cfg = get_config()
     if not cfg.api_key:
@@ -229,7 +229,8 @@ def chat_completion_sync(
             temperature=temperature,
             max_tokens=max_tokens or cfg.max_tokens,
         )
-        return _to_result(response).text or None
+        result = _to_result(response)
+        return result if (result.text or "").strip() else None
     except Exception:
         return None
     finally:

@@ -28,18 +28,19 @@ Dưới đây là tổng hợp các giai đoạn phát triển và các tính n�
   - Cấu hình qua `AI_API_KEY`, `AI_BASE_URL`, `AI_MODEL` trong `.env`.
   - Tự động đóng gói lịch sử tiêu thụ 6 tháng gần nhất để phân tích.
   - Tạo giao diện "Phân tích AI" giúp đánh giá mức độ tiêu thụ, đưa ra cảnh báo về những thay đổi bất thường (tăng đột biến) và cung cấp gợi ý tiết kiệm điện/nước.
+  - Chat AI trả lời câu hỏi tự do bằng model; intent tra cứu cấu trúc vẫn rule-based; context lọc theo quyền.
 - [x] **Xử lý lỗi AI đầy đủ** (`app/services/ai_service.py`, `app/services/ai_client.py`):
-  - Phân loại và xử lý riêng: timeout (30s), rate limit (429), API key không hợp lệ, response rỗng, phản hồi không đủ nội dung, phản hồi bị cắt (`finish_reason=length`), lỗi model.
+  - Phân loại và xử lý riêng: timeout (30s), rate limit (429), API key không hợp lệ, response rỗng, phản hồi không đủ nội dung, phản hồi bị cắt (`finish_reason=length`), output thiếu mục, lỗi model.
   - Fallback tự động về phân tích nội bộ khi AI không khả dụng.
 - [x] **Tối ưu Prompt qua 3 vòng thử nghiệm** (`prompt_optimization.md`):
   - V1 → V2 → V3: điểm chất lượng tăng từ 3/10 lên 9/10.
   - Áp dụng system/user prompt phân tách, ràng buộc output, gắn gợi ý với dữ liệu thực.
-- [x] **Kiểm thử tự động** (`tests/test_ai.py`, `tests/test_crud.py`):
-  - **47 test cases** (21 AI + 26 CRUD/Chat/Edge) — tất cả PASSED.
-  - Bao gồm: trường hợp đúng, sai, biên (dữ liệu âm, rỗng, tăng đột biến, response rỗng, rate limit, finish_reason=length).
+- [x] **Kiểm thử tự động** (`tests/test_ai.py`, `tests/test_chat_ai.py`, `tests/test_crud.py`):
+  - **61 test cases** (35 AI + 26 CRUD/Chat/Edge) — tất cả PASSED.
+  - Bao gồm: trường hợp đúng, sai, biên (dữ liệu âm, rỗng, tăng đột biến, response rỗng, rate limit, finish_reason=length, thiếu mục output, fallback DESC, chat AI/fallback/phân quyền).
 - [x] **AI Code Review** (`ai_code_review.md`):
   - Dùng AI review toàn bộ backend: phát hiện 6 lỗi (tương thích thư viện, xử lý lỗi, bảo mật, phân quyền).
   - Tất cả 6 lỗi đã được sửa và xác nhận.
 
 ---
-**Trạng thái hiện tại:** Đã tích hợp AI chuẩn OpenAI (Qwen3.8-27B) và 47 test pass; còn các mục P0/P1 trong [MUC_CON_THIEU.md](MUC_CON_THIEU.md) cần hoàn thiện trước khi nghiệm thu.
+**Trạng thái hiện tại:** Đã tích hợp AI chuẩn OpenAI (Qwen3.8-27B), hoàn thành P0-01, P0-02, P0-03 và 61 test pass; còn các mục P1/P2 trong [MUC_CON_THIEU.md](MUC_CON_THIEU.md) cần hoàn thiện trước khi nghiệm thu.
