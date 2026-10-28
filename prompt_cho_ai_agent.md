@@ -10,7 +10,7 @@ Dưới đây là toàn bộ thông tin về bối cảnh, kiến trúc và quy 
 
 ## 1. Ngữ cảnh & Mục tiêu dự án
 - **Bài toán:** Quản lý tiêu thụ điện nước cho hộ gia đình/khu trọ. 
-- **Mục tiêu:** Hệ thống cần quản lý danh mục hộ/phòng, đồng hồ, ghi nhận chỉ số định kỳ, tính toán hóa đơn (theo bậc thang), theo dõi thanh toán/công nợ và đặc biệt **tích hợp AI (Gemini/OpenAI)** để phân tích tiêu thụ, cảnh báo dấu hiệu bất thường và gợi ý tiết kiệm.
+- **Mục tiêu:** Hệ thống cần quản lý danh mục hộ/phòng, đồng hồ, ghi nhận chỉ số định kỳ, tính toán hóa đơn (theo bậc thang), theo dõi thanh toán/công nợ và đặc biệt **tích hợp AI (chuẩn OpenAI, Qwen3.8-27B)** để phân tích tiêu thụ, cảnh báo dấu hiệu bất thường và gợi ý tiết kiệm.
 - **Đối tượng sử dụng (Actor):** 
   - **Quản trị viên (Admin):** Quản lý toàn bộ hệ thống (CRUD dữ liệu, nhập chỉ số, chốt hóa đơn).
   - **Người dùng (Hộ gia đình):** Chỉ được tra cứu lịch sử tiêu thụ, xem hóa đơn và đọc các báo cáo/cảnh báo từ AI của chính hộ mình.
@@ -19,7 +19,7 @@ Dưới đây là toàn bộ thông tin về bối cảnh, kiến trúc và quy 
 - **Backend:** Python với framework FastAPI.
 - **Database:** SQLite (quản lý qua ORM SQLAlchemy).
 - **Frontend:** Single Page Application (SPA) sử dụng HTML, CSS thuần (KHÔNG dùng các framework/thư viện ngoài như Tailwind/Bootstrap/React) và Vanilla JavaScript.
-- **AI Integration:** API của Google Gemini (hoặc tương đương) gọi từ backend.
+- **AI Integration:** API chuẩn OpenAI (base URL + model Qwen3.8-27B) gọi từ backend.
 
 ## 3. Kiến trúc CSDL & Cấu trúc dự án
 ### Cơ sở dữ liệu cốt lõi
@@ -54,7 +54,7 @@ Dự án đã được hoàn thiện các tính năng cốt lõi (Giai đoạn K
 - **Thanh toán & Hóa đơn:** Đã tự động hóa việc tính tiền điện theo bậc thang EVN, quản lý công nợ, thanh toán một phần/toàn bộ.
 - **Phân quyền & AI (KT3):** 
   - Cơ chế RBAC chia quyền Admin/User đã hoạt động chặt chẽ.
-  - Tích hợp thành công Gemini AI: tự động lấy 6 tháng lịch sử tiêu thụ để phân tích, gửi prompt chuyên biệt để sinh JSON phản hồi.
+  - Tích hợp thành công AI chuẩn OpenAI (Qwen3.8-27B): tự động lấy 6 tháng lịch sử tiêu thụ để phân tích, gửi prompt chuyên biệt để sinh nhận xét markdown.
 
 ## 5. Quy tắc lập trình bắt buộc (Coding Guidelines)
 Khi bạn được yêu cầu viết mã nguồn, hãy tuân thủ TUYỆT ĐỐI các luật sau:

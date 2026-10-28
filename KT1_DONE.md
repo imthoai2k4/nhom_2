@@ -23,7 +23,7 @@ AI (Antigravity) đã hỗ trợ:
 | File | Mô tả |
 |------|-------|
 | `main.py` | FastAPI entry point, mount static files, init DB, seed data |
-| `requirements.txt` | Dependencies: FastAPI, SQLAlchemy, Gemini, pytest |
+| `requirements.txt` | Dependencies: FastAPI, SQLAlchemy, OpenAI SDK, pytest |
 | `.env` / `.env.example` | Cấu hình API key và DB path |
 | `start.bat` | Script cài deps + khởi động server 1 lệnh |
 | `app/__init__.py` | Package init |
@@ -104,9 +104,9 @@ Tổng hóa đơn    → tiền điện + tiền nước (đã gồm VAT)
 ## Cách chạy KT1
 
 ```powershell
-# 1. Điền GEMINI_API_KEY vào .env
+# 1. Điền AI_API_KEY vào .env (base URL/model đã có trong .env.example)
 # 2. Cài dependencies
-pip install fastapi "uvicorn[standard]" sqlalchemy "pydantic>=2" python-dotenv google-generativeai python-multipart pytest
+pip install fastapi "uvicorn[standard]" sqlalchemy "pydantic>=2" python-dotenv openai python-multipart pytest
 
 # 3. Khởi động server
 python main.py

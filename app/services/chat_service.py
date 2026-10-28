@@ -4,7 +4,7 @@ app/services/chat_service.py
 Trợ lý AI cho cửa sổ chat.
   - Phát hiện ý định (intent) từ câu hỏi tiếng Việt.
   - Truy vấn DB theo intent, đóng gói dữ liệu tham chiếu.
-  - Gọi Gemini sinh câu trả lời tự nhiên (nếu có key) — fallback rule-based.
+  - Gọi AI (chuẩn OpenAI) sinh câu trả lời tự nhiên (nếu có key) — fallback rule-based.
 
 Các intent:
   - greeting       : chào hỏi
@@ -17,7 +17,6 @@ Các intent:
   - summary        : tổng quan hệ thống (admin)
   - help           : trợ giúp
 """
-import os
 import json
 import re
 from decimal import Decimal
@@ -26,29 +25,14 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app import models
+from app.services.ai_client import chat_completion_sync
 
-# ── Gemini (lazy import để tránh crash nếu thiếu key) ─────────────────────
-_GEMINI_KEY = os.getenv("GEMINI_API_KEY", "")
-
-
-def _genai_generate(system: str, user: str, temperature: float = 0.5) -> Optional[str]:
-    """Gọi Gemini; trả None nếu lỗi / không có key."""
-    if not _GEMINI_KEY:
-        return None
-    try:
-        import google.generativeai as genai
-        genai.configure(api_key=_GEMINI_KEY)
-        model = genai.GenerativeModel("gemini-2.5-flash")
-        resp = model.generate_content(
-            [{"role": "user", "parts": [{"text": system + "\n\n" + user}]}],
-            generation_config=genai.GenerationConfig(
-                temperature=temperature,
-                max_output_tokens=1024,
-            ),
-        )
-        return resp.text
-    except Exception as e:
-        return f"⚠️ Gemini lỗi: {e}"
+# ── AI client (chuẩn OpenAI) ───────────────────────────────────────────────
+# Ghi chú: process_message hiện vẫn rule-based; hàm dưới sẵn sàng để nối
+# vào nhánh "general" khi làm P0-03 trong MUC_CON_THIEU.md.
+def _ai_generate(system: str, user: str, temperature: float = 0.5) -> Optional[str]:
+    """Gọi AI (chuẩn OpenAI); trả None nếu lỗi / chưa cấu hình."""
+    return chat_completion_sync(system, user, temperature=temperature)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -314,7 +298,7 @@ def handle_consumption(db: Session, user: models.User, text: str, context_hh: Op
         lines.append(f"| {p} | {e} | {w} |")
         data_rows.append(v)
 
-    # nếu có Gemini → nhờ nhận xét biến động
+    # tính biến động từ dữ liệu
     summary = None
     elec_vals = [v["electricity"] for v in data_rows if v["electricity"] is not None]
     if len(elec_vals) >= 2:

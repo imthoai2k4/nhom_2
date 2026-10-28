@@ -1,4 +1,4 @@
-/** pages/ai.js — Phân tích AI tiêu thụ điện nước (Gemini) */
+/** pages/ai.js — Phân tích AI tiêu thụ điện nước (Qwen3.8-27B) */
 let _aiResultText = "";
 let _aiHouseholdId = null;
 
@@ -11,7 +11,7 @@ async function renderAI() {
       <div class="ai-hero-icon" aria-hidden="true">🤖</div>
       <div>
         <div class="ai-hero-title">Phân tích tiêu thụ bằng AI</div>
-        <div class="ai-hero-sub">Gemini AI đọc dữ liệu hóa đơn để phát hiện bất thường, giải thích biến động và gợi ý cách tiết kiệm điện nước.</div>
+        <div class="ai-hero-sub">AI đọc dữ liệu hóa đơn để phát hiện bất thường, giải thích biến động và gợi ý cách tiết kiệm điện nước.</div>
       </div>
     </div>
 
@@ -106,7 +106,7 @@ async function runAIAnalysis() {
   resultDiv.innerHTML = `
     <div class="ai-loading-card">
       <div class="spinner" style="margin:0 auto 14px"></div>
-      <div style="color:var(--text-secondary);font-size:0.88rem">🤖 Gemini AI đang đọc dữ liệu tiêu thụ…</div>
+      <div style="color:var(--text-secondary);font-size:0.88rem">🤖 AI đang đọc dữ liệu tiêu thụ…</div>
       <div style="color:var(--text-muted);font-size:0.76rem;margin-top:6px">Quá trình này có thể mất vài giây</div>
     </div>`;
 
@@ -124,7 +124,7 @@ async function runAIAnalysis() {
         <div class="ai-response-header">
           <div>
             <div class="ai-response-title">🤖 Kết quả phân tích · ${escapeHtml(res.household_name || "")}</div>
-            <div class="ai-response-meta">${res.data_points || 0} điểm dữ liệu · ${months} tháng · Gemini AI</div>
+            <div class="ai-response-meta">${res.data_points || 0} điểm dữ liệu · ${months} tháng · Qwen3.8-27B</div>
           </div>
           <div class="meta-row">
             <span class="badge badge-success">✅ Hoàn tất</span>
@@ -139,7 +139,7 @@ async function runAIAnalysis() {
         <div class="empty-state">
           <div class="empty-state-icon" style="background:rgba(248,113,113,.1);border-color:rgba(248,113,113,.24)">⚠️</div>
           <div class="empty-state-title" style="color:var(--accent-red)">Không thể phân tích</div>
-          <div class="empty-state-text">${escapeHtml(e.detail || e.message || "Không thể kết nối AI. Kiểm tra GEMINI_API_KEY trong .env.")}</div>
+          <div class="empty-state-text">${escapeHtml(e.detail || e.message || "Không thể kết nối AI. Kiểm tra AI_API_KEY trong .env.")}</div>
           <button class="btn btn-secondary" type="button" onclick="runAIAnalysis()">🔄 Thử lại</button>
         </div>
       </div>`;

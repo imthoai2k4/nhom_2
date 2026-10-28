@@ -2,7 +2,8 @@
 
 **Hệ thống:** Quản lý Hóa đơn Điện nước Hộ gia đình có Tích hợp AI  
 **Chức năng AI:** Phân tích tiêu thụ điện nước, cảnh báo bất thường, gợi ý tiết kiệm  
-**Model:** Google Gemini 2.5 Flash  
+**Model khi thử nghiệm:** Google Gemini 2.5 Flash  
+**Model production hiện tại:** Qwen3.8-27B (API chuẩn OpenAI — chuyển ngày 2026-10-28)  
 **Mục tiêu tối ưu:** Prompt chính xác, có cấu trúc, phản hồi đủ nội dung, không tự tạo số liệu
 
 ---

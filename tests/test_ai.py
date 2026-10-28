@@ -1,18 +1,18 @@
 """
-tests/test_ai.py — Kiểm thử chức năng AI (ai_service.py)
+tests/test_ai.py — Kiểm thử chức năng AI (ai_service.py + ai_client.py)
 
 Bao gồm các trường hợp:
   - Dữ liệu hợp lệ (đúng)
   - Dữ liệu rỗng (biên)
   - Dữ liệu tăng đột biến / âm / mâu thuẫn (sai / biên)
-  - Không có API key → fallback mock
-  - Response rỗng / timeout / rate limit
+  - Không có API key → fallback nội bộ
+  - Timeout / rate limit / response rỗng / response bị cắt (finish_reason=length)
+  - Cấu hình OpenAI-compatible: base URL, model Qwen3.8-27B
 
 Chạy: python -m pytest tests/test_ai.py -v
 """
-import pytest
 import asyncio
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import AsyncMock, patch
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -117,106 +117,224 @@ class TestMockAnalysis:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# NHÓM 2: Test analyze_consumption (hàm async, kiểm tra fallback khi không có key)
+# NHÓM 2: Test analyze_consumption (async, mock lớp AI client)
 # ═══════════════════════════════════════════════════════════════════════════════
 class TestAnalyzeConsumption:
-    """TC-AI-008 → TC-AI-015: Kiểm thử hàm analyze_consumption async."""
+    """TC-AI-008 → TC-AI-014: Kiểm thử analyze_consumption với các lỗi AI."""
 
-    # TC-AI-008: Không có API key → dùng mock analysis, không crash
+    # TC-AI-008: Không có API key → fallback nội bộ, không crash
     def test_TC_AI_008_no_api_key(self):
-        """Không có GEMINI_API_KEY → fallback về _mock_analysis."""
-        with patch("app.services.ai_service._GEMINI_KEY", ""):
-            from app.services.ai_service import analyze_consumption
-            readings = _make_readings([150, 160])
-            result = asyncio.get_event_loop().run_until_complete(
-                analyze_consumption("Phòng 108", readings, [])
+        """Không có AI_API_KEY → fallback về _mock_analysis."""
+        from app.services.ai_service import analyze_consumption
+
+        with patch("app.services.ai_service.is_configured", return_value=False):
+            result = asyncio.run(
+                analyze_consumption("Phòng 108", _make_readings([150, 160]), [])
             )
-        assert isinstance(result, str)
+        assert "Chưa cấu hình" in result
         assert len(result) > 50, "Kết quả phải có nội dung"
 
     # TC-AI-009: Timeout → thông báo timeout + fallback
     def test_TC_AI_009_timeout_error(self):
-        """Timeout khi gọi Gemini → trả về thông báo timeout + phân tích nội bộ."""
-        with patch("app.services.ai_service._GEMINI_KEY", "fake-key"):
-            with patch("google.generativeai.GenerativeModel") as mock_model:
-                mock_instance = MagicMock()
-                mock_instance.generate_content.side_effect = Exception("deadline exceeded timeout")
-                mock_model.return_value = mock_instance
-                with patch("google.generativeai.configure"):
-                    from app.services import ai_service
-                    import importlib
-                    importlib.reload(ai_service)
-                    ai_service._GEMINI_KEY = "fake-key"
+        """Timeout khi gọi AI → trả về thông báo timeout + phân tích nội bộ."""
+        from app.services.ai_client import AIError
+        from app.services.ai_service import analyze_consumption
 
-                    readings = _make_readings([100, 120])
-                    result = asyncio.get_event_loop().run_until_complete(
-                        ai_service.analyze_consumption("Phòng 109", readings, [])
-                    )
-        assert isinstance(result, str)
-        # Phải trả về chuỗi hợp lệ (timeout hoặc fallback)
-        assert len(result) > 0
+        with patch("app.services.ai_service.is_configured", return_value=True), \
+             patch(
+                 "app.services.ai_service.chat_completion",
+                 new=AsyncMock(side_effect=AIError("timeout", "deadline exceeded")),
+             ):
+            result = asyncio.run(
+                analyze_consumption("Phòng 109", _make_readings([100, 120]), [])
+            )
+        assert "timeout" in result.lower() or "⏱️" in result
 
     # TC-AI-010: Rate limit → thông báo rate limit + fallback
     def test_TC_AI_010_rate_limit_error(self):
         """Rate limit → trả về thông báo + phân tích nội bộ."""
-        with patch("app.services.ai_service._GEMINI_KEY", "fake-key"):
-            with patch("google.generativeai.GenerativeModel") as mock_model:
-                mock_instance = MagicMock()
-                mock_instance.generate_content.side_effect = Exception("quota resource_exhausted 429")
-                mock_model.return_value = mock_instance
-                with patch("google.generativeai.configure"):
-                    from app.services import ai_service
-                    ai_service._GEMINI_KEY = "fake-key"
-                    readings = _make_readings([100, 120])
-                    result = asyncio.get_event_loop().run_until_complete(
-                        ai_service.analyze_consumption("Phòng 110", readings, [])
-                    )
-        assert isinstance(result, str)
-        assert len(result) > 0
+        from app.services.ai_client import AIError
+        from app.services.ai_service import analyze_consumption
+
+        with patch("app.services.ai_service.is_configured", return_value=True), \
+             patch(
+                 "app.services.ai_service.chat_completion",
+                 new=AsyncMock(side_effect=AIError("rate_limit", "429 quota")),
+             ):
+            result = asyncio.run(
+                analyze_consumption("Phòng 110", _make_readings([100, 120]), [])
+            )
+        assert "rate limit" in result.lower() or "quá tải" in result.lower()
 
     # TC-AI-011: Response rỗng từ API → fallback
     def test_TC_AI_011_empty_response(self):
         """AI trả về text rỗng → fallback phân tích nội bộ."""
-        with patch("app.services.ai_service._GEMINI_KEY", "fake-key"):
-            with patch("google.generativeai.GenerativeModel") as mock_model:
-                mock_resp = MagicMock()
-                mock_resp.text = ""   # response rỗng
-                mock_instance = MagicMock()
-                mock_instance.generate_content.return_value = mock_resp
-                mock_model.return_value = mock_instance
-                with patch("google.generativeai.configure"):
-                    from app.services import ai_service
-                    ai_service._GEMINI_KEY = "fake-key"
-                    readings = _make_readings([100])
-                    result = asyncio.get_event_loop().run_until_complete(
-                        ai_service.analyze_consumption("Phòng 111", readings, [])
-                    )
-        assert isinstance(result, str)
+        from app.services.ai_client import ChatResult
+        from app.services.ai_service import analyze_consumption
+
+        with patch("app.services.ai_service.is_configured", return_value=True), \
+             patch(
+                 "app.services.ai_service.chat_completion",
+                 new=AsyncMock(return_value=ChatResult(text="", finish_reason="stop")),
+             ):
+            result = asyncio.run(
+                analyze_consumption("Phòng 111", _make_readings([100]), [])
+            )
+        assert "rỗng" in result.lower()
         assert len(result) > 0, "Phải có fallback khi response rỗng"
 
-    # TC-AI-012: Response đủ nội dung từ Gemini → trả về nguyên văn
-    def test_TC_AI_012_valid_gemini_response(self):
-        """Gemini trả về nội dung hợp lệ → trả thẳng kết quả của Gemini."""
+    # TC-AI-012: Response đủ nội dung → trả về nguyên văn
+    def test_TC_AI_012_valid_ai_response(self):
+        """AI trả về nội dung hợp lệ → trả thẳng kết quả của model."""
+        from app.services.ai_client import ChatResult
+        from app.services.ai_service import analyze_consumption
+
         expected = "📊 TỔNG QUAN: Tiêu thụ ổn định trong 6 tháng qua, mức trung bình 150 kWh."
-        with patch("app.services.ai_service._GEMINI_KEY", "fake-key"):
-            with patch("google.generativeai.GenerativeModel") as mock_model:
-                mock_resp = MagicMock()
-                mock_resp.text = expected
-                mock_instance = MagicMock()
-                mock_instance.generate_content.return_value = mock_resp
-                mock_model.return_value = mock_instance
-                with patch("google.generativeai.configure"):
-                    from app.services import ai_service
-                    ai_service._GEMINI_KEY = "fake-key"
-                    readings = _make_readings([150, 145, 160])
-                    result = asyncio.get_event_loop().run_until_complete(
-                        ai_service.analyze_consumption("Phòng 112", readings, [])
-                    )
-        assert result == expected, "Phải trả về nguyên văn kết quả Gemini khi hợp lệ"
+        with patch("app.services.ai_service.is_configured", return_value=True), \
+             patch(
+                 "app.services.ai_service.chat_completion",
+                 new=AsyncMock(
+                     return_value=ChatResult(
+                         text=expected,
+                         finish_reason="stop",
+                         model="qwen3.8-27b",
+                     )
+                 ),
+             ):
+            result = asyncio.run(
+                analyze_consumption("Phòng 112", _make_readings([150, 145, 160]), [])
+            )
+        assert result == expected, "Phải trả về nguyên văn kết quả AI khi hợp lệ"
+
+    # TC-AI-013: finish_reason=length lần đầu → retry 1 lần với max_tokens lớn hơn
+    def test_TC_AI_013_length_retry(self):
+        """Lần đầu bị cắt (length) → retry và nhận kết quả đầy đủ."""
+        from app.services.ai_client import ChatResult
+        from app.services.ai_service import analyze_consumption
+
+        expected = "📊 TỔNG QUAN: Đã phân tích đầy đủ sau khi tăng giới hạn token."
+        mock = AsyncMock(side_effect=[
+            ChatResult(text="📊 TỔNG QUAN: ngắn", finish_reason="length"),
+            ChatResult(text=expected, finish_reason="stop", model="qwen3.8-27b"),
+        ])
+        with patch("app.services.ai_service.is_configured", return_value=True), \
+             patch("app.services.ai_service.chat_completion", new=mock):
+            result = asyncio.run(
+                analyze_consumption("Phòng 113", _make_readings([120, 130]), [])
+            )
+        assert result == expected
+        assert mock.await_count == 2, "Phải retry đúng 1 lần"
+
+    # TC-AI-014: finish_reason=length cả 2 lần → fallback, không trả nửa câu
+    def test_TC_AI_014_length_still_truncated(self):
+        """Vẫn bị cắt sau retry → fallback và thông báo rõ."""
+        from app.services.ai_client import ChatResult
+        from app.services.ai_service import analyze_consumption
+
+        mock = AsyncMock(return_value=ChatResult(text="📊 TỔNG QUAN: ngắn", finish_reason="length"))
+        with patch("app.services.ai_service.is_configured", return_value=True), \
+             patch("app.services.ai_service.chat_completion", new=mock):
+            result = asyncio.run(
+                analyze_consumption("Phòng 114", _make_readings([100, 110]), [])
+            )
+        assert "giới hạn độ dài" in result.lower()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# NHÓM 3: Test _build_user_prompt
+# NHÓM 3: Test cấu hình OpenAI-compatible
+# ═══════════════════════════════════════════════════════════════════════════════
+class TestAIConfig:
+    """TC-AI-020 → TC-AI-021: Kiểm thử base URL / model mặc định và override."""
+
+    def test_TC_AI_020_default_config(self, monkeypatch):
+        """Không có env → dùng base URL và model Qwen3.8-27B mặc định."""
+        from app.services.ai_client import get_config
+
+        for key in (
+            "AI_API_KEY",
+            "OPENAI_API_KEY",
+            "AI_BASE_URL",
+            "AI_MODEL",
+            "AI_TIMEOUT",
+            "AI_MAX_TOKENS",
+        ):
+            monkeypatch.delenv(key, raising=False)
+
+        cfg = get_config()
+        assert cfg.base_url == "https://discovery-api.intern-ai.org.cn/v1"
+        assert cfg.model == "qwen3.8-27b"
+        assert cfg.timeout == 30.0
+        assert cfg.max_tokens == 4096
+
+    def test_TC_AI_021_env_override(self, monkeypatch):
+        """Env override được base URL/model; bỏ dấu '/' cuối base URL."""
+        from app.services.ai_client import get_config
+
+        monkeypatch.setenv("AI_BASE_URL", "https://example.com/v1/")
+        monkeypatch.setenv("AI_MODEL", "qwen-test")
+
+        cfg = get_config()
+        assert cfg.base_url == "https://example.com/v1"
+        assert cfg.model == "qwen-test"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# NHÓM 3B: Test lớp client gửi đúng giao thức OpenAI
+# ═══════════════════════════════════════════════════════════════════════════════
+class TestAIClient:
+    """TC-AI-022: Kiểm tra payload/URL/model đúng chuẩn OpenAI."""
+
+    def test_TC_AI_022_openai_wire_format(self, monkeypatch):
+        """Client phải gửi system/user message, model Qwen và base URL đã cấu hình."""
+        import sys
+        import types
+        from app.services.ai_client import chat_completion
+
+        monkeypatch.setenv("AI_API_KEY", "test-key")
+        monkeypatch.delenv("AI_BASE_URL", raising=False)
+        monkeypatch.delenv("AI_MODEL", raising=False)
+
+        captured = {}
+
+        class FakeCompletions:
+            async def create(self, **kwargs):
+                captured.update(kwargs)
+                return types.SimpleNamespace(
+                    choices=[
+                        types.SimpleNamespace(
+                            message=types.SimpleNamespace(content="📊 TỔNG QUAN: ok"),
+                            finish_reason="stop",
+                        )
+                    ],
+                    model="qwen3.8-27b",
+                    usage=None,
+                )
+
+        class FakeAsyncOpenAI:
+            def __init__(self, **kwargs):
+                captured["client"] = kwargs
+                self.chat = types.SimpleNamespace(completions=FakeCompletions())
+
+            async def close(self):
+                pass
+
+        fake_module = types.SimpleNamespace(AsyncOpenAI=FakeAsyncOpenAI)
+        with patch.dict(sys.modules, {"openai": fake_module}):
+            result = asyncio.run(chat_completion("Hệ thống", "Dữ liệu"))
+
+        assert result.text == "📊 TỔNG QUAN: ok"
+        assert result.finish_reason == "stop"
+        assert captured["model"] == "qwen3.8-27b"
+        assert captured["messages"] == [
+            {"role": "system", "content": "Hệ thống"},
+            {"role": "user", "content": "Dữ liệu"},
+        ]
+        assert captured["client"]["base_url"] == "https://discovery-api.intern-ai.org.cn/v1"
+        assert captured["client"]["api_key"] == "test-key"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# NHÓM 4: Test _build_user_prompt
 # ═══════════════════════════════════════════════════════════════════════════════
 class TestBuildUserPrompt:
     """TC-AI-016 → TC-AI-019: Kiểm thử hàm xây dựng prompt."""
@@ -253,7 +371,9 @@ class TestBuildUserPrompt:
 # Chạy trực tiếp (không cần pytest)
 # ═══════════════════════════════════════════════════════════════════════════════
 if __name__ == "__main__":
-    import sys, os
+    import sys
+    import os
+
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
     print("=" * 60)

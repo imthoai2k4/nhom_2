@@ -1,9 +1,12 @@
 # AI Code Review — Đề tài 48
 
 **Dự án:** Hệ thống Quản lý Hóa đơn Điện nước Hộ gia đình  
-**Công cụ AI:** Google Gemini 2.5 Flash 
+**Công cụ AI (giai đoạn review):** Google Gemini 2.5 Flash  
+**Model production hiện tại:** Qwen3.8-27B (API chuẩn OpenAI — chuyển ngày 2026-10-28)  
 **Ngày thực hiện:** 2026-09-15 đến 2026-09-18  
 **Phạm vi review:** Backend Python (FastAPI, SQLAlchemy), AI Service, Auth
+
+> Ghi chú: tài liệu ghi lại review thực hiện với Gemini trước khi chuyển provider. Các đoạn `_GEMINI_KEY`/`google.generativeai` bên dưới là trạng thái lịch sử, không còn trong code hiện tại.
 
 ---
 

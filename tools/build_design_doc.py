@@ -1,3 +1,5 @@
+# LƯU Ý: nội dung tài liệu sinh ra phản ánh giai đoạn KT2 (trước khi chuyển AI provider).
+# AI provider hiện tại: OpenAI-compatible Qwen3.8-27B — xem app/services/ai_client.py.
 from pathlib import Path
 from datetime import date
 from PIL import Image, ImageDraw, ImageFont

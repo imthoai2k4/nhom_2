@@ -2,7 +2,7 @@
 app/routers/ai_analysis.py — API phân tích AI tiêu thụ điện nước
 
 Endpoints:
-  POST /api/ai/analyze   — Phân tích tiêu thụ cho 1 hộ (Gemini AI)
+  POST /api/ai/analyze   — Phân tích tiêu thụ cho 1 hộ (AI chuẩn OpenAI)
 """
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -36,7 +36,7 @@ async def analyze_household(
     current_user: models.User = Depends(get_current_user),
 ):
     """
-    Phân tích tiêu thụ điện nước của hộ bằng AI Gemini.
+    Phân tích tiêu thụ điện nước của hộ bằng AI (chuẩn OpenAI).
     - Admin: phân tích bất kỳ hộ nào
     - User: chỉ phân tích hộ của mình
     """

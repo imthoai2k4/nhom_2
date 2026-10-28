@@ -1,19 +1,15 @@
 """
-app/services/ai_service.py — Tích hợp Gemini AI phân tích hóa đơn tiền điện
+app/services/ai_service.py — Phân tích hóa đơn điện nước bằng AI
 
-Sử dụng Google Generative AI (Gemini) để:
+Sử dụng API chuẩn OpenAI (mặc định Qwen3.8-27B tại Intern-AI):
   - Nhận xét biến động tiêu thụ điện theo tháng
   - Cảnh báo dấu hiệu bất thường
   - Gợi ý tiết kiệm điện ở mức tham khảo
 
-Xử lý lỗi đầy đủ: timeout, rate limit (429), response rỗng/sai định dạng, lỗi model.
+Xử lý lỗi đầy đủ: timeout, rate limit (429), API key, response rỗng,
+finish_reason=length (bị cắt do giới hạn token), lỗi model.
 """
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
-
-_GEMINI_KEY = os.getenv("GEMINI_API_KEY", "")
+from app.services.ai_client import AIError, chat_completion, is_configured
 
 # ── System prompt (theo đề tài 48) ──────────────────────────────────────────
 SYSTEM_PROMPT = """Bạn là trợ lý AI phân tích hóa đơn điện nước cho hệ thống quản lý hộ gia đình.
@@ -58,107 +54,122 @@ def _build_user_prompt(household_name: str, readings: list, invoices: list) -> s
     return "\n".join(lines)
 
 
+def _error_fallback(
+    exc: AIError,
+    household_name: str,
+    readings: list,
+    invoices: list,
+) -> str:
+    """Trả thông báo lỗi thân thiện kèm phân tích nội bộ."""
+    base = _mock_analysis(household_name, readings, invoices)
+    detail = (exc.detail or "")[:120]
+
+    if exc.kind == "no_key":
+        return (
+            "ℹ️ **Chưa cấu hình AI_API_KEY** — đang dùng phân tích nội bộ.\n\n" + base
+        )
+    if exc.kind == "timeout":
+        return (
+            "⏱️ **AI phân tích chậm (timeout 30s)** — Hệ thống dùng phân tích nội bộ thay thế:\n\n"
+            + base
+        )
+    if exc.kind == "rate_limit":
+        return (
+            "⚠️ **AI đang quá tải (rate limit)** — Vui lòng thử lại sau ít phút.\n\n"
+            "Phân tích cơ bản từ dữ liệu hệ thống:\n\n"
+            + base
+        )
+    if exc.kind == "auth":
+        return (
+            "🔑 **API key AI không hợp lệ hoặc chưa được cấu hình** — Sử dụng phân tích nội bộ:\n\n"
+            + base
+        )
+    if exc.kind == "unavailable":
+        return (
+            f"🛠️ **Dịch vụ AI tạm thời không khả dụng** (`{detail}`) — Sử dụng phân tích nội bộ:\n\n"
+            + base
+        )
+    if exc.kind == "bad_request":
+        return (
+            f"⚠️ **Yêu cầu AI không hợp lệ** (`{detail}`) — Sử dụng phân tích nội bộ:\n\n"
+            + base
+        )
+    if exc.kind == "missing_sdk":
+        return (
+            "🛠️ **Chưa cài thư viện `openai`** — chạy `pip install -r requirements.txt`. "
+            "Đang dùng phân tích nội bộ:\n\n" + base
+        )
+    return (
+        f"⚠️ **Lỗi AI (`{exc.kind}`)** — Sử dụng phân tích nội bộ:\n\n" + base
+    )
+
+
 async def analyze_consumption(
     household_name: str,
     readings: list,
     invoices: list,
 ) -> str:
     """
-    Gọi Gemini API phân tích tiêu thụ điện nước.
+    Gọi AI (chuẩn OpenAI) phân tích tiêu thụ điện nước.
     Trả về chuỗi markdown nhận xét.
-    Xử lý đầy đủ: timeout, rate limit, response rỗng, lỗi model.
     """
-    if not _GEMINI_KEY:
-        return _mock_analysis(household_name, readings, invoices)
+    if not is_configured():
+        return (
+            "ℹ️ **Chưa cấu hình AI_API_KEY** — đang dùng phân tích nội bộ.\n\n"
+            + _mock_analysis(household_name, readings, invoices)
+        )
+
+    user_prompt = _build_user_prompt(household_name, readings, invoices)
 
     try:
-        import google.generativeai as genai
+        result = await chat_completion(SYSTEM_PROMPT, user_prompt, temperature=0.7)
 
-        genai.configure(api_key=_GEMINI_KEY)
-        model = genai.GenerativeModel("gemini-2.5-flash")
-
-        user_prompt = _build_user_prompt(household_name, readings, invoices)
-
-        # ── Gọi API với xử lý lỗi phân loại ────────────────────────────────
-        try:
-            response = model.generate_content(
-                [
-                    {"role": "user", "parts": [{"text": SYSTEM_PROMPT + "\n\n" + user_prompt}]},
-                ],
-                generation_config=genai.GenerationConfig(
-                    temperature=0.7,
-                    max_output_tokens=1024,
-                ),
-                request_options={"timeout": 30},  # timeout 30 giây
-            )
-        except Exception as api_err:
-            err_str = str(api_err).lower()
-            err_type = type(api_err).__name__
-
-            # Timeout
-            if any(k in err_str for k in ("deadline", "timeout", "timed out")):
-                return (
-                    "⏱️ **AI phân tích chậm (timeout 30s)** — Hệ thống dùng phân tích nội bộ thay thế:\n\n"
-                    + _mock_analysis(household_name, readings, invoices)
-                )
-            # Rate limit (HTTP 429)
-            if any(k in err_str for k in ("quota", "resource_exhausted", "429", "rate limit", "rateLimitExceeded")):
-                return (
-                    "⚠️ **AI đang quá tải (rate limit)** — Vui lòng thử lại sau ít phút.\n\n"
-                    "Phân tích cơ bản từ dữ liệu hệ thống:\n\n"
-                    + _mock_analysis(household_name, readings, invoices)
-                )
-            # API key không hợp lệ hoặc hết hạn
-            if any(k in err_str for k in ("permission", "api_key", "invalid_argument", "unauthenticated")):
-                return (
-                    "🔑 **API key Gemini không hợp lệ hoặc hết hạn** — Sử dụng phân tích nội bộ:\n\n"
-                    + _mock_analysis(household_name, readings, invoices)
-                )
-            # Lỗi model / service không khả dụng
-            if any(k in err_str for k in ("service_unavailable", "internal", "model")):
-                return (
-                    f"🛠️ **Dịch vụ AI tạm thời không khả dụng** (`{err_type}`) — Sử dụng phân tích nội bộ:\n\n"
-                    + _mock_analysis(household_name, readings, invoices)
-                )
-            # Lỗi API không xác định → re-raise để xử lý ở ngoài
-            raise
-
-        # ── Kiểm tra response rỗng / sai định dạng ──────────────────────────
-        if not response or not hasattr(response, "text"):
-            return (
-                "⚠️ **AI không trả về đối tượng kết quả hợp lệ** — Sử dụng phân tích nội bộ:\n\n"
-                + _mock_analysis(household_name, readings, invoices)
+        # Model dừng vì hết token → thử lại 1 lần với ngân sách lớn hơn.
+        if result.finish_reason == "length":
+            result = await chat_completion(
+                SYSTEM_PROMPT,
+                user_prompt,
+                temperature=0.7,
+                max_tokens=8192,
             )
 
-        result_text = (response.text or "").strip()
+        text = (result.text or "").strip()
 
-        if not result_text:
+        if not text:
             return (
                 "⚠️ **AI trả về kết quả rỗng** — Sử dụng phân tích nội bộ:\n\n"
                 + _mock_analysis(household_name, readings, invoices)
             )
 
+        if result.finish_reason == "length":
+            return (
+                "⚠️ **Phản hồi AI bị cắt do giới hạn độ dài** — Sử dụng phân tích nội bộ:\n\n"
+                + _mock_analysis(household_name, readings, invoices)
+            )
+
         # Kiểm tra độ dài tối thiểu (< 50 ký tự = phản hồi không đủ nội dung)
-        if len(result_text) < 50:
+        if len(text) < 50:
             return (
                 "⚠️ **Phản hồi AI không đủ nội dung** — Sử dụng phân tích nội bộ:\n\n"
                 + _mock_analysis(household_name, readings, invoices)
             )
 
-        return result_text
+        return text
 
-    except Exception as e:
+    except AIError as exc:
+        return _error_fallback(exc, household_name, readings, invoices)
+    except Exception as exc:
         # Fallback chung cho các lỗi không xác định
-        error_type = type(e).__name__
+        error_type = type(exc).__name__
         return (
-            f"⚠️ **Lỗi không xác định khi gọi Gemini AI** (`{error_type}: {str(e)[:100]}`)\n\n"
+            f"⚠️ **Lỗi không xác định khi gọi AI** (`{error_type}: {str(exc)[:100]}`)\n\n"
             "Sử dụng phân tích nội bộ:\n\n"
             + _mock_analysis(household_name, readings, invoices)
         )
 
 
 def _mock_analysis(household_name: str, readings: list, invoices: list) -> str:
-    """Phân tích mock khi không có Gemini API key."""
+    """Phân tích nội bộ khi chưa cấu hình AI hoặc AI không khả dụng."""
     # Phân tích cơ bản từ dữ liệu
     elec_readings = [r for r in readings if r.get("meter_type") == "electricity"]
     water_readings = [r for r in readings if r.get("meter_type") == "water"]
