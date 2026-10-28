@@ -310,9 +310,11 @@ async def analyze_consumption(
 
 def _mock_analysis(household_name: str, readings: list, invoices: list) -> str:
     """Phân tích nội bộ khi chưa cấu hình AI hoặc AI không khả dụng."""
-    # Phân tích cơ bản từ dữ liệu
-    elec_readings = [r for r in readings if r.get("meter_type") == "electricity"]
-    water_readings = [r for r in readings if r.get("meter_type") == "water"]
+    # Sắp xếp theo kỳ tăng dần: API trả DESC (mới nhất trước), nhưng phần
+    # so sánh "tháng trước" cần kỳ mới nhất nằm ở cuối danh sách.
+    ordered = sorted(readings, key=lambda r: str(r.get("period", "")))
+    elec_readings = [r for r in ordered if r.get("meter_type") == "electricity"]
+    water_readings = [r for r in ordered if r.get("meter_type") == "water"]
 
     result_lines = [f"## 📊 Phân tích tiêu thụ — {household_name}\n"]
 

@@ -130,6 +130,31 @@ class TestMockAnalysis:
         result = self.analyze("Phòng 107", readings, [])
         assert "120" in result or "kWh" in result or "📊" in result
 
+    # TC-AI-028: Dữ liệu DESC từ API → vẫn so sánh đúng tháng gần nhất
+    def test_TC_AI_028_desc_order_latest_trend(self):
+        """Readings DESC (mới nhất trước) → báo tăng +4.0%, không báo giảm."""
+        readings = [
+            {"period": "2026-07", "meter_type": "electricity", "consumption": 78.0, "unit": "kWh"},
+            {"period": "2026-06", "meter_type": "electricity", "consumption": 75.0, "unit": "kWh"},
+            {"period": "2026-05", "meter_type": "electricity", "consumption": 65.0, "unit": "kWh"},
+        ]
+        result = self.analyze("Phòng 120", readings, [])
+        assert "Biến động bình thường" in result
+        assert "+4.0%" in result
+        assert "Giảm 13.3%" not in result
+
+    # TC-AI-029: DESC + tăng >20% → cảnh báo tăng, không báo giảm
+    def test_TC_AI_029_desc_order_spike(self):
+        """Readings DESC với mức tăng 33.3% → phải cảnh báo tăng."""
+        readings = [
+            {"period": "2026-07", "meter_type": "electricity", "consumption": 200.0, "unit": "kWh"},
+            {"period": "2026-06", "meter_type": "electricity", "consumption": 150.0, "unit": "kWh"},
+            {"period": "2026-05", "meter_type": "electricity", "consumption": 100.0, "unit": "kWh"},
+        ]
+        result = self.analyze("Phòng 121", readings, [])
+        assert "Tăng 33.3%" in result
+        assert "Giảm" not in result
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # NHÓM 2: Test analyze_consumption (async, mock lớp AI client)
