@@ -7,6 +7,7 @@ const Chat = (() => {
   let currentSessionId = null;
   let sessions = [];
   let sessionsDrawerOpen = false;
+  let isSending = false;
 
   // ── Mount UI ──────────────────────────────────────────────
   function mount() {
@@ -148,7 +149,7 @@ const Chat = (() => {
     const el = e?.target || document.getElementById("chat-input");
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = Math.min(120, el.scrollHeight) + "px";
+    el.style.height = Math.min(140, el.scrollHeight) + "px";
   }
 
   // ── Toggle panel ──────────────────────────────────────────
@@ -275,7 +276,7 @@ const Chat = (() => {
     const content = m.role === "assistant" ? renderMd(m.content) : escapeHtml(m.content);
     return `
       <div class="chat-msg ${m.role}">
-        <div>${content}</div>
+        <div class="chat-msg-content">${content}</div>
         <div class="chat-msg-meta">${formatTime(m.created_at)}</div>
       </div>
     `;
@@ -289,6 +290,7 @@ const Chat = (() => {
     if (welcome) welcome.remove();
     box.insertAdjacentHTML("beforeend", renderMsgHtml(m));
     box.scrollTop = box.scrollHeight;
+    return box.lastElementChild;
   }
 
   function appendLoading() {
@@ -306,6 +308,8 @@ const Chat = (() => {
 
   // ── Send message ──────────────────────────────────────────
   async function sendCurrentMessage() {
+    if (isSending) return;
+
     const input = document.getElementById("chat-input");
     const send = document.getElementById("chat-send");
     const text = input.value.trim();
@@ -315,8 +319,12 @@ const Chat = (() => {
       return;
     }
 
-    // user bubble (optimistic)
-    appendMsg({
+    isSending = true;
+    send.disabled = true;
+
+    // Chỉ hiển thị 1 bubble người dùng (optimistic), sau đó thay bằng bản
+    // ghi từ server để lấy đúng id/thời gian — không append thêm lần nữa.
+    const optimisticEl = appendMsg({
       role: "user",
       content: text,
       created_at: new Date().toISOString(),
@@ -324,7 +332,6 @@ const Chat = (() => {
 
     input.value = "";
     input.style.height = "auto";
-    send.disabled = true;
     appendLoading();
 
     try {
@@ -334,8 +341,12 @@ const Chat = (() => {
       });
       removeLoading();
       currentSessionId = res.session_id;
-      appendMsg(res.user_message);
+
+      if (optimisticEl && res.user_message) {
+        optimisticEl.outerHTML = renderMsgHtml(res.user_message);
+      }
       appendMsg(res.assistant_message);
+
       // cập nhật sessions list
       if (sessions.length === 0 || !sessions.find(s => s.id === res.session_id)) {
         loadSessions();
@@ -348,6 +359,7 @@ const Chat = (() => {
         created_at: new Date().toISOString(),
       });
     } finally {
+      isSending = false;
       send.disabled = false;
       input.focus();
     }
@@ -366,16 +378,23 @@ const Chat = (() => {
     // quote
     html = html.replace(/^&gt; (.+)$/gm, '<div class="md-quote">$1</div>');
     // bảng markdown đơn giản (header | col1 | col2)
+    // Hỗ trợ cả bảng nằm cuối tin nhắn (không có newline sau dòng cuối).
     html = html.replace(
-      /((?:^\|.+\|.+\n)+)/gm,
+      /((?:^\|.+\|.+(?:\r?\n|$))+)/gm,
       (block) => {
-        const lines = block.trim().split("\n");
+        const lines = block.trim().split(/\r?\n/);
         if (lines.length < 2) return block;
         const head = lines[0].split("|").slice(1, -1).map(s => s.trim());
         // bỏ line separator (---|---|---)
         const body = lines.slice(2).map(l => l.split("|").slice(1, -1).map(s => s.trim()));
-        return `<table><thead><tr>${head.map(h => `<th>${h}</th>`).join("")}</tr></thead>
-                <tbody>${body.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+        if (!body.length) return block;
+        const headHtml = head.map(h => `<th>${h}</th>`).join("");
+        const bodyHtml = body
+          .map(r => `<tr>${r.map(c => `<td>${c}</td>`).join("")}</tr>`)
+          .join("");
+        // Wrapper giúp bảng rộng cuộn ngang thay vì bị cắt cột trên màn hình nhỏ.
+        return `<div class="md-table-wrap"><table><thead><tr>${headHtml}</tr></thead>` +
+               `<tbody>${bodyHtml}</tbody></table></div>`;
       }
     );
     // newline
@@ -393,17 +412,30 @@ const Chat = (() => {
       .replace(/'/g, "&#39;");
   }
 
+  /**
+   * Backend lưu created_at/updated_at dạng UTC nhưng serialize không kèm 'Z'.
+   * Thêm 'Z' để trình duyệt không hiểu nhầm là giờ địa phương (lệch 7 giờ).
+   */
+  function parseServerDate(iso) {
+    if (!iso) return null;
+    if (iso instanceof Date) return iso;
+    const raw = String(iso).trim();
+    if (!raw) return null;
+    const hasZone = /(?:[zZ]|[+-]\d{2}:?\d{2})$/.test(raw);
+    const normalized = hasZone ? raw : raw.replace(" ", "T") + "Z";
+    const d = new Date(normalized);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
   function formatTime(iso) {
-    try {
-      const d = new Date(iso);
-      return d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
-    } catch { return ""; }
+    const d = parseServerDate(iso);
+    if (!d) return "";
+    return d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
   }
   function formatDate(iso) {
-    try {
-      const d = new Date(iso);
-      return d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" });
-    } catch { return ""; }
+    const d = parseServerDate(iso);
+    if (!d) return "";
+    return d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" });
   }
 
   return { mount, togglePanel, newSession, close: closePanel };
