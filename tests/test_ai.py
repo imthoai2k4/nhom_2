@@ -143,17 +143,30 @@ class TestMockAnalysis:
         assert "+4.0%" in result
         assert "Giảm 13.3%" not in result
 
-    # TC-AI-029: DESC + tăng >20% → cảnh báo tăng, không báo giảm
+    # TC-AI-029: DESC + tăng >50% → cảnh báo tăng, không báo giảm
     def test_TC_AI_029_desc_order_spike(self):
-        """Readings DESC với mức tăng 33.3% → phải cảnh báo tăng."""
+        """Readings DESC với mức tăng 100% → phải cảnh báo tăng."""
         readings = [
             {"period": "2026-07", "meter_type": "electricity", "consumption": 200.0, "unit": "kWh"},
-            {"period": "2026-06", "meter_type": "electricity", "consumption": 150.0, "unit": "kWh"},
-            {"period": "2026-05", "meter_type": "electricity", "consumption": 100.0, "unit": "kWh"},
+            {"period": "2026-06", "meter_type": "electricity", "consumption": 100.0, "unit": "kWh"},
+            {"period": "2026-05", "meter_type": "electricity", "consumption": 80.0, "unit": "kWh"},
         ]
         result = self.analyze("Phòng 121", readings, [])
-        assert "Tăng 33.3%" in result
+        assert "Tăng 100.0%" in result
         assert "Giảm" not in result
+
+    # TC-AI-030: Ngưỡng 50% → tăng 30% chưa cảnh báo
+    def test_TC_AI_030_threshold_50_no_warning_at_30(self):
+        """Tăng 30% dưới ngưỡng 50% → chỉ báo biến động bình thường."""
+        readings = [
+            {"period": "2026-07", "meter_type": "electricity", "consumption": 130.0, "unit": "kWh"},
+            {"period": "2026-06", "meter_type": "electricity", "consumption": 100.0, "unit": "kWh"},
+            {"period": "2026-05", "meter_type": "electricity", "consumption": 90.0, "unit": "kWh"},
+        ]
+        result = self.analyze("Phòng 122", readings, [])
+        assert "Biến động bình thường" in result
+        assert "+30.0%" in result
+        assert "cần kiểm tra" not in result
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -368,6 +381,43 @@ class TestAnalyzeConsumption:
         assert "giới hạn độ dài" in result.text.lower()
         assert mock.await_count == 2
 
+    # TC-AI-032: Kết thúc giữa từ → retry định dạng
+    def test_TC_AI_032_mid_sentence_retry(self):
+        """Output đủ mục nhưng kết thúc giữa từ → retry 1 lần."""
+        from app.services.ai_client import ChatResult
+        from app.services.ai_service import analyze_consumption_detailed
+
+        bad_ending = FULL_ANALYSIS.rstrip(".") + " giữa"
+        mock = AsyncMock(side_effect=[
+            ChatResult(text=bad_ending, finish_reason="stop"),
+            ChatResult(text=FULL_ANALYSIS, finish_reason="stop"),
+        ])
+        with patch("app.services.ai_service.is_configured", return_value=True), \
+             patch("app.services.ai_service.chat_completion", new=mock):
+            result = asyncio.run(
+                analyze_consumption_detailed("Phòng 123", _make_readings([120, 130]), [])
+            )
+        assert result.text == FULL_ANALYSIS
+        assert mock.await_count == 2
+
+    # TC-AI-033: Output quá dài → cắt gọn và đánh dấu truncated
+    def test_TC_AI_033_long_output_truncated(self):
+        """Output > 4.000 ký tự → cắt gọn, truncated=True, UI có cảnh báo."""
+        from app.services.ai_client import ChatResult
+        from app.services.ai_service import analyze_consumption_detailed
+
+        long_text = (FULL_ANALYSIS + "\n") * 20
+        mock = AsyncMock(return_value=ChatResult(text=long_text, finish_reason="stop"))
+        with patch("app.services.ai_service.is_configured", return_value=True), \
+             patch("app.services.ai_service.chat_completion", new=mock):
+            result = asyncio.run(
+                analyze_consumption_detailed("Phòng 124", _make_readings([120, 130]), [])
+            )
+        assert result.source == "ai"
+        assert result.truncated is True
+        assert len(result.text) <= 4100
+        assert "rút gọn" in result.text.lower()
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # NHÓM 3: Test cấu hình OpenAI-compatible
@@ -494,6 +544,19 @@ class TestBuildUserPrompt:
     def test_TC_AI_019_prompt_ends_with_request(self):
         prompt = self.build("Phòng 204", [], [])
         assert "phân tích" in prompt.lower() or "gợi ý" in prompt.lower()
+
+    # TC-AI-031: Prompt có ngưỡng 50% và cảnh báo nghiệp vụ
+    def test_TC_AI_031_prompt_threshold_and_alerts(self):
+        readings = _make_readings([100, 120])
+        alerts = [{
+            "period": "2026-02",
+            "message": "Tiêu thụ điện tăng mạnh",
+            "percent_change": 60,
+        }]
+        prompt = self.build("Phòng 205", readings, [], alerts=alerts)
+        assert "50%" in prompt
+        assert "60.0%" in prompt
+        assert "Tiêu thụ điện tăng mạnh" in prompt
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

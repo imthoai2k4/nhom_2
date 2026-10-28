@@ -12,6 +12,7 @@ app/seed.py  — v3
 from datetime import date, datetime
 from decimal import Decimal
 from app import models
+from app.security import hash_password
 
 
 def seed_if_empty(db):
@@ -22,7 +23,7 @@ def seed_if_empty(db):
     print("[SEED] Creating sample data...")
 
     # ── 1. Users ─────────────────────────────────────────────
-    admin = models.User(username="admin", password="admin123",
+    admin = models.User(username="admin", password=hash_password("admin123"),
                         full_name="Nguyễn Văn Quản Lý", role="admin")
     db.add(admin)
     db.flush()
@@ -54,7 +55,7 @@ def seed_if_empty(db):
     ]
     for uname, pwd, fname, hh in user_accounts:
         u = models.User(
-            username=uname, password=pwd,
+            username=uname, password=hash_password(pwd),
             full_name=fname, role="user",
             household_id=hh.id,
         )

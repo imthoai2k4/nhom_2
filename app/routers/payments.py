@@ -7,6 +7,7 @@ from app.database import get_db
 from app.auth import get_current_user, require_admin, get_household_filter
 from app.schemas import PaymentCreate, PaymentOut
 from app import models
+from app.routers.ai_analysis import clear_ai_cache
 
 router = APIRouter()
 
@@ -71,6 +72,7 @@ def create_payment(
     db.flush()
     _update_invoice_status(db, inv)
     db.commit()
+    clear_ai_cache()
     db.refresh(p)
     return p
 
@@ -189,4 +191,5 @@ def resolve_alert(aid: int, db: Session = Depends(get_db), _=Depends(require_adm
         raise HTTPException(404, "Không tìm thấy cảnh báo")
     a.is_resolved = True
     db.commit()
+    clear_ai_cache()
     return {"message": "Đã đánh dấu xử lý"}

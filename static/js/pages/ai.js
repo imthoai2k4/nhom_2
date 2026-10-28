@@ -1,8 +1,13 @@
 /** pages/ai.js — Phân tích AI tiêu thụ điện nước (Qwen3.8-27B) */
 let _aiResultText = "";
 let _aiHouseholdId = null;
+let _aiCooldownTimer = null;
 
 async function renderAI() {
+  if (_aiCooldownTimer) {
+    clearInterval(_aiCooldownTimer);
+    _aiCooldownTimer = null;
+  }
   const c = document.getElementById("page-container");
   const isAdmin = Auth.isAdmin();
 
@@ -122,13 +127,21 @@ async function runAIAnalysis() {
     const isInternal = (res.source || "internal") === "internal";
     const isTruncated = !!res.truncated;
     const sourceLabel = isInternal ? "Phân tích nội bộ" : (res.model || "Qwen3.8-27B");
+    const periodLabel = (res.period_from && res.period_to)
+      ? `Kỳ ${res.period_from} → ${res.period_to}`
+      : "Chưa có kỳ dữ liệu";
+    const analyzedLabel = res.analyzed_at
+      ? `Phân tích lúc ${new Date(res.analyzed_at).toLocaleString("vi-VN")}`
+      : "";
+    const promptLabel = res.prompt_version ? ` · prompt ${res.prompt_version}` : "";
+    const cacheLabel = res.cached ? " · cache" : "";
     const badge = isInternal
       ? `<span class="badge badge-warning">🧠 Phân tích nội bộ</span>`
       : isTruncated
         ? `<span class="badge badge-warning">⚠️ Chưa đầy đủ</span>`
         : `<span class="badge badge-success">✅ Hoàn tất</span>`;
     const warning = (!isInternal && isTruncated)
-      ? `<div class="form-hint" style="color:var(--accent-yellow);margin-top:8px">⚠️ Phản hồi AI chưa đầy đủ 5 mục. Bạn có thể bấm “Phân tích ngay” để thử lại.</div>`
+      ? `<div class="form-hint" style="color:var(--accent-yellow);margin-top:8px">⚠️ Phản hồi AI có thể chưa đầy đủ. Bạn có thể bấm “Phân tích ngay” để thử lại.</div>`
       : "";
 
     resultDiv.innerHTML = `
@@ -136,7 +149,8 @@ async function runAIAnalysis() {
         <div class="ai-response-header">
           <div>
             <div class="ai-response-title">🤖 Kết quả phân tích · ${escapeHtml(res.household_name || "")}</div>
-            <div class="ai-response-meta">${res.data_points || 0} điểm dữ liệu · ${months} tháng · ${escapeHtml(sourceLabel)}</div>
+            <div class="ai-response-meta">${res.data_points || 0} kỳ · ${periodLabel} · ${escapeHtml(sourceLabel)}${cacheLabel}${promptLabel}</div>
+            ${analyzedLabel ? `<div class="ai-response-meta">${escapeHtml(analyzedLabel)}</div>` : ""}
           </div>
           <div class="meta-row">
             ${badge}
@@ -158,9 +172,31 @@ async function runAIAnalysis() {
       </div>`;
     showToast("Lỗi phân tích AI", "error");
   } finally {
-    btn.disabled = false;
-    btn.innerHTML = "✨ Phân tích ngay";
+    startAICooldown(10);
   }
+}
+
+/** Khóa nút 10 giây để tránh bấm liên tục gây 429. */
+function startAICooldown(seconds) {
+  const btn = document.getElementById("ai-btn");
+  if (!btn) return;
+  if (_aiCooldownTimer) clearInterval(_aiCooldownTimer);
+
+  let remaining = seconds;
+  btn.disabled = true;
+  btn.innerHTML = `⏳ Thử lại sau ${remaining}s`;
+
+  _aiCooldownTimer = setInterval(() => {
+    remaining -= 1;
+    if (remaining <= 0) {
+      clearInterval(_aiCooldownTimer);
+      _aiCooldownTimer = null;
+      btn.disabled = false;
+      btn.innerHTML = "✨ Phân tích ngay";
+    } else {
+      btn.innerHTML = `⏳ Thử lại sau ${remaining}s`;
+    }
+  }, 1000);
 }
 
 async function copyAIResult() {

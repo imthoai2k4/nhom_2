@@ -31,7 +31,8 @@ async def lifespan(app: FastAPI):
     from app.seed import seed_if_empty
     db = SessionLocal()
     try:
-        seed_if_empty(db)
+        if os.getenv("SEED_DEMO_DATA", "1") != "0":
+            seed_if_empty(db)
     finally:
         db.close()
     yield
@@ -45,9 +46,18 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+_cors_origins = [
+    origin.strip()
+    for origin in os.getenv(
+        "CORS_ORIGINS",
+        "http://localhost:8000,http://127.0.0.1:8000",
+    ).split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins or ["http://localhost:8000"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -62,6 +72,23 @@ async def no_cache_ui_assets(request, call_next):
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
+    return response
+
+
+@app.middleware("http")
+async def security_headers(request, call_next):
+    """Thêm header bảo mật cơ bản cho mọi response."""
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    response.headers.setdefault(
+        "Permissions-Policy", "geolocation=(), microphone=(), camera=()"
+    )
+    if os.getenv("ENABLE_HSTS") == "1":
+        response.headers.setdefault(
+            "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
+        )
     return response
 
 # ── Routers KT2 + KT3 ────────────────────────────────────────────────────────

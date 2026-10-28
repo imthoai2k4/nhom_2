@@ -1,0 +1,11 @@
+Hộ/phòng: $household_name
+
+$readings_block
+
+$invoices_block
+
+$alerts_block
+
+Ngưỡng cảnh báo: tăng > $threshold_pct% so với trung bình 3 kỳ gần nhất.
+
+Hãy phân tích biến động tiêu thụ điện nước, chỉ ra tháng cần kiểm tra và gợi ý tiết kiệm.

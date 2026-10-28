@@ -35,12 +35,13 @@ Dưới đây là tổng hợp các giai đoạn phát triển và các tính n�
 - [x] **Tối ưu Prompt qua 3 vòng thử nghiệm** (`prompt_optimization.md`):
   - V1 → V2 → V3: điểm chất lượng tăng từ 3/10 lên 9/10.
   - Áp dụng system/user prompt phân tách, ràng buộc output, gắn gợi ý với dữ liệu thực.
-- [x] **Kiểm thử tự động** (`tests/test_ai.py`, `tests/test_chat_ai.py`, `tests/test_crud.py`):
-  - **61 test cases** (35 AI + 26 CRUD/Chat/Edge) — tất cả PASSED.
-  - Bao gồm: trường hợp đúng, sai, biên (dữ liệu âm, rỗng, tăng đột biến, response rỗng, rate limit, finish_reason=length, thiếu mục output, fallback DESC, chat AI/fallback/phân quyền).
+- [x] **Kiểm thử tự động** (`tests/test_ai.py`, `tests/test_chat_ai.py`, `tests/test_api_ai.py`, `tests/test_billing.py`, `tests/test_alerts.py`, `tests/test_security.py`, `tests/test_crud.py`):
+  - **94 test cases** (39 AI + 55 API/CRUD/Billing/Alert/Security) — tất cả PASSED.
+  - Bao gồm: đúng/sai/biên, rate limit, finish_reason=length, thiếu mục output, fallback DESC, chat AI, RBAC, cache, hash, CORS.
 - [x] **AI Code Review** (`ai_code_review.md`):
   - Dùng AI review toàn bộ backend: phát hiện 6 lỗi (tương thích thư viện, xử lý lỗi, bảo mật, phân quyền).
-  - Tất cả 6 lỗi đã được sửa và xác nhận.
+  - Tất cả 6 lỗi đã được sửa và xác nhận; minh chứng tại `docs/ai-review/`.
+- [x] **P1/P2 hoàn thiện**: prompt tách file, test API/billing/alert, hash PBKDF2, CORS/rate limit/headers, cache/cooldown, README, slide, deploy, backup.
 
 ---
-**Trạng thái hiện tại:** Đã tích hợp AI chuẩn OpenAI (Qwen3.8-27B), hoàn thành P0-01, P0-02, P0-03 và 61 test pass; còn các mục P1/P2 trong [MUC_CON_THIEU.md](MUC_CON_THIEU.md) cần hoàn thiện trước khi nghiệm thu.
+**Trạng thái hiện tại:** Đã tích hợp AI chuẩn OpenAI (Qwen3.8-27B), hoàn thành P0 + P1 + P2, **94 test pass**; sẵn sàng demo. Các mục production-only (JWT/session, deploy thật, diễn tập demo) được ghi chú trong [MUC_CON_THIEU.md](MUC_CON_THIEU.md) và `deploy/README.md`.

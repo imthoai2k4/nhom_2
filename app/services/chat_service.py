@@ -743,6 +743,15 @@ def process_message(
     """Trả về (reply, intent, ref_data)."""
     intent = detect_intent(text)
 
+    # User chưa gắn hộ chỉ được chào/trợ giúp; không truy cập dữ liệu.
+    if user.role != "admin" and not user.household_id and intent not in ("greeting", "help"):
+        return (
+            "⛔ Tài khoản của bạn chưa được gắn hộ/phòng. "
+            "Vui lòng liên hệ quản trị viên để được cấp quyền.",
+            "general",
+            None,
+        )
+
     if intent == "greeting":
         return handle_greeting(db, user)
     if intent == "help":

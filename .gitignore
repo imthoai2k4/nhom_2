@@ -1,7 +1,10 @@
 .env
 *.db
+*.db-wal
+*.db-shm
 *.sqlite
 *.sqlite3
+backups/
 Admin_User_login.txt
 __pycache__/
 *.py[cod]

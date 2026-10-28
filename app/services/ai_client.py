@@ -53,9 +53,10 @@ class ChatResult:
 class AIError(Exception):
     """Lỗi AI đã được phân loại để tầng service chọn thông báo/fallback."""
 
-    def __init__(self, kind: str, detail: str = ""):
+    def __init__(self, kind: str, detail: str = "", retry_after: Optional[int] = None):
         self.kind = kind
         self.detail = detail
+        self.retry_after = retry_after
         super().__init__(f"{kind}: {detail}" if detail else kind)
 
 
@@ -189,7 +190,14 @@ async def chat_completion(
             max_tokens=max_tokens or cfg.max_tokens,
         )
     except Exception as exc:  # SDK ném nhiều lớp lỗi khác nhau
-        raise AIError(_classify_error(exc), str(exc)[:300]) from exc
+        retry_after = None
+        try:
+            retry_after = int(exc.response.headers.get("retry-after"))
+        except (AttributeError, TypeError, ValueError):
+            retry_after = None
+        raise AIError(
+            _classify_error(exc), str(exc)[:300], retry_after=retry_after
+        ) from exc
     finally:
         await client.close()
 

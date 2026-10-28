@@ -105,7 +105,7 @@ Hãy phân tích biến động, chỉ ra tháng cần kiểm tra và gợi ý t
 ## Vòng 3 — Tối ưu hoàn chỉnh (Phiên bản Production)
 
 **Ngày thử:** 2026-09-15  
-**Cải tiến:** Thêm emoji nhất quán, yêu cầu gắn gợi ý với xu hướng, thêm dữ liệu hóa đơn, thêm cảnh báo ngưỡng 20%.
+**Cải tiến:** Thêm emoji nhất quán, yêu cầu gắn gợi ý với xu hướng, thêm dữ liệu hóa đơn, thêm cảnh báo ngưỡng 50% (đồng bộ `alert_service`).
 
 ### System Prompt V3 (Final — dùng trong production)
 
@@ -141,6 +141,11 @@ Hộ/phòng: Phòng 101
   - Kỳ 2026-02: Điện=520,000đ | Nước=83,000đ | Tổng=603,000đ | TT: Chưa TT
   - Kỳ 2026-03: Điện=289,000đ | Nước=77,000đ | Tổng=366,000đ | TT: Đã TT
 
+⚠️ Cảnh báo nghiệp vụ chưa xử lý:
+  - Kỳ 2026-02: Tiêu thụ điện tăng 86.7% so với trung bình 2 kỳ trước.
+
+Ngưỡng cảnh báo: tăng > 50% so với trung bình 3 kỳ gần nhất.
+
 Hãy phân tích biến động tiêu thụ điện nước, chỉ ra tháng cần kiểm tra và gợi ý tiết kiệm.
 ```
 
@@ -172,13 +177,13 @@ Kỳ 2026-02 chưa thanh toán — cần thu nợ.
 |----------|----|----|-----|
 | Không tự tạo số liệu | ❌ | ✅ | ✅ |
 | Cấu trúc rõ ràng | ❌ | ✅ | ✅ |
-| Cảnh báo đúng ngưỡng | ❌ | ✅ | ✅ |
+| Cảnh báo đúng ngưỡng (50%) | ❌ | ⚠️ | ✅ |
 | Gợi ý gắn với dữ liệu | ❌ | ⚠️ | ✅ |
 | Có thông tin hóa đơn/chi phí | ❌ | ❌ | ✅ |
 | Emoji nhất quán cho UI | ❌ | ⚠️ | ✅ |
 | **Điểm tổng** | **3/10** | **7/10** | **9/10** |
 
-**Phiên bản V3 được áp dụng vào production** trong `app/services/ai_service.py`.
+**Phiên bản V3 được áp dụng vào production** trong `app/services/ai_service.py` + `prompts/consumption_system_v3.txt` + `prompts/consumption_user_template.txt`.
 
 ---
 

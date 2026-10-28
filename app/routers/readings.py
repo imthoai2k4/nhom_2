@@ -8,6 +8,7 @@ from app.auth import get_current_user, require_admin, get_household_filter
 from app.schemas import ReadingCreate, ReadingOut
 from app import models
 from app.services.alert_service import check_and_create_alert
+from app.routers.ai_analysis import clear_ai_cache
 
 router = APIRouter()
 
@@ -145,6 +146,7 @@ def create_reading(
         pass
 
     db.commit()
+    clear_ai_cache()
     db.refresh(r)
     return r
 
@@ -175,5 +177,6 @@ def update_reading(
     r.curr_reading = curr_reading
     r.consumption = curr_reading - r.prev_reading
     db.commit()
+    clear_ai_cache()
     db.refresh(r)
     return r

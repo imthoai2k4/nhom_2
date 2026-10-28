@@ -1,0 +1,4 @@
+version,model,chars,elapsed_ms,finish_reason,score,note
+V1,qwen3.8-27b,794,10660,length,3,"Prompt thô; lan man, dễ suy diễn nguyên nhân, không ràng buộc cấu trúc"
+V2,qwen3.8-27b,1020,7024,stop,7,"Tách system/user; cấu trúc 5 phần; không bịa số; chưa có hóa đơn/chi phí"
+V3,qwen3.8-27b,1489,21201,stop,9,"Có hóa đơn, ngưỡng 50%, bám dữ liệu; đôi khi dừng giữa mục chi phí → app retry/fallback"

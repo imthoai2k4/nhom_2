@@ -18,6 +18,7 @@ from app.database import get_db
 from app.auth import get_current_user
 from app import models
 from app.services.chat_service import process_message, detect_intent
+from app.security import chat_rate_limiter
 from app.schemas import (
     ChatSessionOut, ChatMessageOut, ChatRequest, ChatResponse,
 )
@@ -142,6 +143,8 @@ def send_message(
     current_user: models.User = Depends(get_current_user),
 ):
     """Gửi 1 message, nhận reply. Tự tạo session nếu chưa có."""
+    chat_rate_limiter.check(f"user:{current_user.id or current_user.username}")
+
     if not body.message or not body.message.strip():
         raise HTTPException(400, "Tin nhắn trống")
 

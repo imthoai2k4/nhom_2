@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 from app.database import get_db
 from app import models
+from app.security import hash_password, is_legacy_hash, verify_password
 
 load_dotenv()
 
@@ -33,7 +34,15 @@ def verify_credentials(username: str, password: str, db: Session) -> models.User
         models.User.username == username
     ).first()
 
-    if user and user.password == password:
+    if user and user.is_active and verify_password(password, user.password):
+        # Tự nâng cấp mật khẩu plaintext cũ lên PBKDF2 khi đăng nhập.
+        if is_legacy_hash(user.password):
+            try:
+                user.password = hash_password(password)
+                db.commit()
+            except Exception:
+                # DB read-only/locked: vẫn cho đăng nhập, lần sau thử lại.
+                db.rollback()
         return user
 
     # Fallback: admin mặc định
@@ -97,11 +106,22 @@ def require_admin(current_user: models.User = Depends(get_current_user)) -> mode
     return current_user
 
 
+def require_household_scope(current_user: models.User) -> int:
+    """User phải được gắn hộ; nếu không → 403 (tránh coi như admin)."""
+    if current_user.role != "admin" and current_user.household_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tài khoản chưa được gắn hộ/phòng. Vui lòng liên hệ quản trị viên.",
+        )
+    return current_user.household_id
+
+
 def get_household_filter(current_user: models.User) -> int | None:
     """
     Trả về household_id nếu user role=user (chỉ xem hộ của mình).
     Trả về None nếu admin (xem tất cả).
+    User chưa được gắn hộ → 403, tránh bị coi như admin.
     """
     if current_user.role == "admin":
         return None
-    return current_user.household_id
+    return require_household_scope(current_user)

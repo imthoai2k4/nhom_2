@@ -10,6 +10,7 @@ from app import models
 
 
 SPIKE_THRESHOLD = Decimal("0.50")   # 50%
+SPIKE_THRESHOLD_PCT = 50            # dùng chung cho prompt/fallback/UI
 
 
 def check_and_create_alert(db: Session, reading: models.Reading) -> models.ConsumptionAlert | None:

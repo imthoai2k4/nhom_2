@@ -78,13 +78,21 @@ class TestConsumptionLogic:
         consumption = curr - prev
         assert consumption == 0, "Tiêu thụ 0 phải là hợp lệ"
 
-    # TC-CRUD-008: Đơn giá bậc thang điện EVN (100 kWh đầu tiên)
+    # TC-CRUD-008: Đơn giá bậc thang điện EVN (50 kWh đầu tiên)
     def test_TC_CRUD_008_evn_tier_pricing(self):
-        """Tiền điện theo bậc thang: 100 kWh đầu × đơn giá bậc 1."""
-        consumption = 100  # kWh
-        tier1_price = 1806  # VNĐ/kWh (EVN bậc 1 — 2024)
-        expected_min = consumption * tier1_price
-        assert expected_min == 180600, "Tiền điện 100 kWh bậc 1 = 180,600đ"
+        """50 kWh đầu × đơn giá bậc 1 (1.728đ) + VAT 10%."""
+        from types import SimpleNamespace
+        from app.services.billing import calc_electricity
+
+        prices = [SimpleNamespace(
+            id=1, tier=1,
+            min_unit=Decimal("0"), max_unit=Decimal("50"),
+            price_per_unit=Decimal("1728"),
+        )]
+        items = calc_electricity(Decimal("50"), prices)
+        assert items[0]["subtotal"] == 86400, "50 kWh × 1.728 = 86.400đ"
+        assert items[0]["vat_amount"] == 8640
+        assert items[0]["total"] == 95040
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

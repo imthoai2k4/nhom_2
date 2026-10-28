@@ -8,6 +8,7 @@ from app.auth import get_current_user, require_admin, get_household_filter
 from app.schemas import InvoiceCreate, InvoiceStatusUpdate, InvoiceOut
 from app import models
 from app.services.billing import generate_invoice_items
+from app.routers.ai_analysis import clear_ai_cache
 
 router = APIRouter()
 
@@ -128,6 +129,7 @@ def generate_invoice(
 ):
     inv = _do_generate(db, body.household_id, body.period, current_user.id)
     db.commit()
+    clear_ai_cache()
     db.refresh(inv)
     return inv
 
@@ -152,6 +154,7 @@ def generate_all_invoices(
             skipped.append({"name": hh.name, "reason": e.detail})
 
     db.commit()
+    clear_ai_cache()
     return {"created": created, "skipped": skipped, "period": period}
 
 
@@ -165,6 +168,7 @@ def update_status(
         raise HTTPException(404, "Không tìm thấy hóa đơn")
     inv.status = body.status
     db.commit()
+    clear_ai_cache()
     db.refresh(inv)
     return inv
 
@@ -178,4 +182,5 @@ def delete_invoice(iid: int, db: Session = Depends(get_db), _=Depends(require_ad
         raise HTTPException(409, "Hóa đơn đã có thanh toán, không thể xóa")
     db.delete(inv)
     db.commit()
+    clear_ai_cache()
     return {"message": "Đã xóa hóa đơn"}
