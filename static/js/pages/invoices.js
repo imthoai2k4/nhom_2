@@ -12,7 +12,7 @@ async function renderInvoices() {
   c.innerHTML = `
     <div class="page-head">
       <div>
-        <h2 class="page-head-title">🧾 ${isAdmin ? "Hóa đơn" : "Hóa đơn của tôi"}</h2>
+        <h2 class="page-head-title">${isAdmin ? "Hóa đơn" : "Hóa đơn của tôi"}</h2>
         <p class="page-head-sub">${isAdmin
           ? "Tạo hóa đơn theo kỳ từ chỉ số đã nhập và theo dõi tình trạng thanh toán."
           : "Tra cứu hóa đơn điện nước của hộ theo kỳ và tình trạng thanh toán."}</p>
@@ -212,6 +212,7 @@ function renderInvoicesTable() {
         <td class="nowrap text-muted">${inv.due_date ? formatDateVN(inv.due_date) : "—"}</td>
         <td>
           <button class="btn btn-secondary btn-sm" type="button" onclick="viewInvoiceDetail(${inv.id})" title="Xem chi tiết hóa đơn" aria-label="Chi tiết hóa đơn ${inv.id}">👁️ Xem</button>
+          ${isAdmin ? `<button class="btn btn-ghost btn-sm" type="button" onclick="deleteInvoice(${inv.id})" title="Xóa hóa đơn" aria-label="Xóa hóa đơn ${inv.id}">🗑️ Xóa</button>` : ""}
         </td>
       </tr>`;
     }).join("");
@@ -222,6 +223,17 @@ function renderInvoicesTable() {
   if (foot) foot.innerHTML = `Hiển thị <strong>${filtered.length}</strong> / ${_invoiceList.length} hóa đơn`;
   const totalEl = document.getElementById("invoice-total");
   if (totalEl) totalEl.textContent = filtered.length ? `Tổng đang lọc: ${fmtMoney(totalFiltered)}` : "";
+}
+
+async function deleteInvoice(id) {
+  const inv = _invoiceList.find(item => item.id === id);
+  if (!inv || !Auth.isAdmin()) return;
+  if (!window.confirm(`Xóa hóa đơn kỳ ${inv.period} của ${invoiceHouseholdName(inv.household_id)}?`)) return;
+  try {
+    await Api.delete(`/api/invoices/${id}`);
+    showToast("Đã xóa hóa đơn", "success");
+    await loadInvoicesPage();
+  } catch (e) { showToast(e.detail || "Lỗi xóa hóa đơn", "error"); }
 }
 
 function onInvoiceSearch(value) {

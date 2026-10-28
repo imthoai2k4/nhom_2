@@ -1,4 +1,4 @@
-# UtilityAI — Quản lý Hóa đơn Điện nước Hộ gia đình tích hợp AI
+# QLPT-AI — Quản lý phòng trọ và điện nước tích hợp AI
 
 Hệ thống quản lý hộ/phòng, đồng hồ, chỉ số, hóa đơn, thanh toán, công nợ và phân tích tiêu thụ bằng AI (Qwen3.8-27B qua API chuẩn OpenAI).
 
@@ -50,7 +50,18 @@ copy .env.example .env
 python main.py
 ```
 
-Mở http://localhost:8000.
+Mở http://localhost:8001 nếu chạy trực tiếp `python main.py`; để chạy giao diện riêng, dùng http://localhost:5500.
+
+### Chạy backend và frontend riêng
+
+Mở hai cửa sổ PowerShell tại thư mục dự án:
+
+```powershell
+.\start_backend.bat
+.\start_frontend.bat
+```
+
+API chạy tại `http://localhost:8001`, giao diện tại `http://localhost:5500`. Frontend mặc định gọi API ở cổng 8001; có thể đổi API bằng tham số `?api=http://host:port` trên địa chỉ frontend. Backend dùng cùng `DATABASE_URL` và tự quy đổi đường dẫn SQLite tương đối theo thư mục dự án, nên khởi chạy từ thư mục khác không tạo nhầm một DB riêng.
 
 ### Tài khoản demo
 

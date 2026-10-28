@@ -3,6 +3,7 @@
  * Khi server trả 401 (hết phiên / sai thông tin), gọi callback onUnauthorized.
  */
 const Api = (() => {
+  const _baseUrl = String(window.API_BASE_URL || "").replace(/\/$/, "");
   let _user = "", _pass = "";
   let _onUnauthorized = null;
 
@@ -36,10 +37,11 @@ const Api = (() => {
     throw e;
   }
 
-  const get    = (url)        => fetch(url, { headers: _headers() }).then(_handle);
-  const post   = (url, body)  => fetch(url, { method: "POST",   headers: _headers(), body: JSON.stringify(body) }).then(_handle);
-  const put    = (url, body)  => fetch(url, { method: "PUT",    headers: _headers(), body: JSON.stringify(body) }).then(_handle);
-  const del    = (url)        => fetch(url, { method: "DELETE", headers: _headers() }).then(_handle);
+  const _url = (url) => /^https?:\/\//i.test(url) ? url : `${_baseUrl}${url}`;
+  const get    = (url)        => fetch(_url(url), { headers: _headers() }).then(_handle);
+  const post   = (url, body)  => fetch(_url(url), { method: "POST",   headers: _headers(), body: JSON.stringify(body) }).then(_handle);
+  const put    = (url, body)  => fetch(_url(url), { method: "PUT",    headers: _headers(), body: JSON.stringify(body) }).then(_handle);
+  const del    = (url)        => fetch(_url(url), { method: "DELETE", headers: _headers() }).then(_handle);
 
   return { get, post, put, delete: del, setCredentials, onUnauthorized };
 })();

@@ -2,6 +2,7 @@
 from typing import Optional
 from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.auth import get_current_user, require_admin, get_household_filter
@@ -149,6 +150,70 @@ def create_reading(
     clear_ai_cache()
     db.refresh(r)
     return r
+
+
+@router.post("/bulk", response_model=list[ReadingOut], status_code=201)
+def create_readings_bulk(
+    bodies: list[ReadingCreate],
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_admin),
+):
+    """Lưu cùng lúc các chỉ số điện/nước của một hộ trong cùng transaction."""
+    if not bodies:
+        raise HTTPException(422, "Cần ít nhất một chỉ số")
+    keys = [(body.meter_id, body.period) for body in bodies]
+    if len(set(keys)) != len(keys):
+        raise HTTPException(422, "Danh sách có đồng hồ/kỳ bị lặp")
+
+    meters = {
+        meter.id: meter
+        for meter in db.query(models.Meter).filter(
+            models.Meter.id.in_([body.meter_id for body in bodies])
+        ).all()
+    }
+    if len(meters) != len(set(body.meter_id for body in bodies)):
+        raise HTTPException(404, "Một hoặc nhiều đồng hồ không tồn tại")
+    if len({body.period for body in bodies}) != 1:
+        raise HTTPException(422, "Các chỉ số phải cùng một kỳ")
+    selected_meters = [meters[body.meter_id] for body in bodies]
+    if len({meter.household_id for meter in selected_meters}) != 1:
+        raise HTTPException(422, "Các chỉ số phải thuộc cùng một hộ/phòng")
+    if len({meter.meter_type for meter in selected_meters}) != len(selected_meters):
+        raise HTTPException(422, "Danh sách không được có nhiều đồng hồ cùng loại")
+    for body in bodies:
+        if db.query(models.Reading.id).filter(
+            models.Reading.meter_id == body.meter_id,
+            models.Reading.period == body.period,
+        ).first():
+            raise HTTPException(409, f"Đã có chỉ số cho đồng hồ này trong kỳ {body.period}")
+
+    readings = []
+    for body in bodies:
+        reading = models.Reading(
+            meter_id=body.meter_id,
+            period=body.period,
+            prev_reading=body.prev_reading,
+            curr_reading=body.curr_reading,
+            consumption=body.curr_reading - body.prev_reading,
+            recorded_by=current_user.id,
+        )
+        db.add(reading)
+        readings.append(reading)
+    try:
+        db.flush()
+        for reading in readings:
+            try:
+                check_and_create_alert(db, reading)
+            except Exception:
+                pass
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(409, "Chỉ số đã được tạo đồng thời bởi một thao tác khác")
+    clear_ai_cache()
+    for reading in readings:
+        db.refresh(reading)
+    return readings
 
 
 @router.put("/{rid}", response_model=ReadingOut)

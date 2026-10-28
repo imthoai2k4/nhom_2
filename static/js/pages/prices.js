@@ -8,7 +8,7 @@ async function renderPrices() {
   c.innerHTML = `
     <div class="page-head">
       <div>
-        <h2 class="page-head-title">💰 Bảng đơn giá</h2>
+        <h2 class="page-head-title">Bảng đơn giá</h2>
         <p class="page-head-sub">Đơn giá điện và nước tính theo bậc lũy tiến, áp dụng theo khoảng thời gian.</p>
       </div>
       <div class="page-head-actions">

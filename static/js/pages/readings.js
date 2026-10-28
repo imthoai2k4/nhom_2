@@ -15,7 +15,7 @@ async function renderReadings() {
   c.innerHTML = `
     <div class="page-head">
       <div>
-        <h2 class="page-head-title">📝 ${isAdmin ? "Nhập &amp; tra cứu chỉ số" : "Chỉ số của tôi"}</h2>
+        <h2 class="page-head-title">${isAdmin ? "Nhập &amp; tra cứu chỉ số" : "Chỉ số của tôi"}</h2>
         <p class="page-head-sub">${isAdmin
           ? "Ghi chỉ số điện/nước theo kỳ tháng. Hệ thống tự tính mức tiêu thụ và kiểm tra bất thường."
           : "Tra cứu chỉ số điện nước của hộ theo từng kỳ tháng."}</p>
@@ -26,7 +26,7 @@ async function renderReadings() {
       ${isAdmin ? `
       <div class="form-panel">
         <div class="form-panel-title">➕ Nhập chỉ số mới</div>
-        <div class="form-panel-sub">Chọn hộ và đồng hồ — chỉ số kỳ trước được điền tự động.</div>
+        <div class="form-panel-sub">Chọn hộ, nhập đồng thời chỉ số điện và nước. Chỉ số kỳ trước được điền tự động.</div>
         <div class="form-grid">
           <div class="form-group">
             <label class="form-label" for="r-hh">Hộ / Phòng</label>
@@ -35,28 +35,24 @@ async function renderReadings() {
             </select>
           </div>
           <div class="form-group">
-            <label class="form-label" for="r-meter">Đồng hồ</label>
-            <select id="r-meter" class="form-control" onchange="prefillPrevReading()">
-              <option value="">-- Chọn đồng hồ --</option>
-            </select>
-          </div>
-          <div class="form-group">
             <label class="form-label" for="r-period">Kỳ tháng</label>
             <input id="r-period" class="form-control" type="month" value="${currentPeriod()}">
           </div>
-          <div class="form-grid form-grid-2" style="gap:12px">
-            <div class="form-group">
-              <label class="form-label" for="r-prev">Chỉ số kỳ trước</label>
-              <input id="r-prev" class="form-control" type="number" step="0.01" readonly placeholder="0">
+          <div class="reading-meter-input" id="r-electricity-box">
+            <div class="form-panel-title">⚡ Đồng hồ điện <span class="text-muted" id="r-electricity-meter">Chọn hộ trước</span></div>
+            <div class="form-grid form-grid-2" style="gap:12px">
+              <div class="form-group"><label class="form-label" for="r-elec-prev">Chỉ số trước</label><input id="r-elec-prev" class="form-control" type="number" step="0.01" readonly placeholder="0"></div>
+              <div class="form-group"><label class="form-label" for="r-elec-curr">Chỉ số kỳ này *</label><input id="r-elec-curr" class="form-control" type="number" step="0.01" oninput="previewConsumption('electricity')" placeholder="Nhập số điện"></div>
             </div>
-            <div class="form-group">
-              <label class="form-label" for="r-curr">Chỉ số kỳ này *</label>
-              <input id="r-curr" class="form-control" type="number" step="0.01" oninput="previewConsumption()" placeholder="Nhập số mới">
-            </div>
+            <div class="reading-preview"><span class="reading-preview-label">Tiêu thụ dự kiến</span><span class="reading-preview-value" id="r-elec-preview">—</span></div>
           </div>
-          <div class="reading-preview" id="r-preview-box">
-            <span class="reading-preview-label">Tiêu thụ dự kiến</span>
-            <span class="reading-preview-value" id="r-preview">—</span>
+          <div class="reading-meter-input" id="r-water-box">
+            <div class="form-panel-title">💧 Đồng hồ nước <span class="text-muted" id="r-water-meter">Chọn hộ trước</span></div>
+            <div class="form-grid form-grid-2" style="gap:12px">
+              <div class="form-group"><label class="form-label" for="r-water-prev">Chỉ số trước</label><input id="r-water-prev" class="form-control" type="number" step="0.01" readonly placeholder="0"></div>
+              <div class="form-group"><label class="form-label" for="r-water-curr">Chỉ số kỳ này *</label><input id="r-water-curr" class="form-control" type="number" step="0.01" oninput="previewConsumption('water')" placeholder="Nhập số nước"></div>
+            </div>
+            <div class="reading-preview"><span class="reading-preview-label">Tiêu thụ dự kiến</span><span class="reading-preview-value" id="r-water-preview">—</span></div>
           </div>
         </div>
         <button class="btn btn-primary btn-block" type="button" style="margin-top:16px" onclick="submitReading()">✅ Nhập chỉ số</button>
@@ -133,8 +129,8 @@ async function loadReadingsPage() {
       formHh.innerHTML = `<option value="">-- Chọn hộ --</option>` +
         _readingHouseholds.filter(h => h.status === "active")
           .map(h => `<option value="${h.id}">${escapeHtml(h.name)}</option>`).join("");
-      if (_readingHouseholds.length === 1) {
-        formHh.value = _readingHouseholds[0].id;
+      if (_readingHouseholds.filter(h => h.status === "active").length === 1) {
+        formHh.value = _readingHouseholds.filter(h => h.status === "active")[0].id;
         await loadMetersForReading();
       }
     }
@@ -159,37 +155,23 @@ function readingHouseholdNameByMeter(meterId) {
 
 async function loadMetersForReading() {
   const hhId = document.getElementById("r-hh")?.value;
-  const sel = document.getElementById("r-meter");
-  if (!sel) return;
-  sel.innerHTML = `<option value="">-- Chọn đồng hồ --</option>`;
-  document.getElementById("r-prev").value = "";
-  previewConsumption();
-  if (!hhId) return;
-
-  try {
-    const data = _readingMeters.filter(m => String(m.household_id) === String(hhId));
-    if (!data.length) {
-      sel.innerHTML = `<option value="">Hộ này chưa có đồng hồ</option>`;
-      return;
-    }
-    sel.innerHTML += data.map(m =>
-      `<option value="${m.id}">${m.meter_type === "electricity" ? "⚡" : "💧"} ${escapeHtml(m.meter_number)} (${escapeHtml(m.unit)})</option>`
-    ).join("");
-    if (data.length === 1) {
-      sel.value = data[0].id;
-      await prefillPrevReading();
-    }
-  } catch {
-    showToast("Không tải được đồng hồ", "error");
+  for (const type of ["electricity", "water"]) {
+    const meter = _readingMeters.find(m => String(m.household_id) === String(hhId) && m.meter_type === type && m.is_active !== false);
+    const label = document.getElementById(`r-${type === "electricity" ? "electricity" : "water"}-meter`);
+    const prev = document.getElementById(type === "electricity" ? "r-elec-prev" : "r-water-prev");
+    if (label) label.dataset.meterId = meter?.id || "";
+    if (label) label.textContent = meter ? `${meter.meter_number} (${meter.unit})` : "Hộ chưa có đồng hồ này";
+    if (prev) prev.value = "0";
+    document.getElementById(type === "electricity" ? "r-elec-curr" : "r-water-curr").value = "";
+    previewConsumption(type);
+    if (meter) await prefillPrevReading(type, meter.id);
   }
 }
 
-async function prefillPrevReading() {
-  const meterId = document.getElementById("r-meter")?.value;
-  const prevEl = document.getElementById("r-prev");
+async function prefillPrevReading(type, meterId) {
+  const prevEl = document.getElementById(type === "electricity" ? "r-elec-prev" : "r-water-prev");
   if (!prevEl) return;
   prevEl.value = "";
-  previewConsumption();
   if (!meterId) return;
   try {
     const last = await Api.get(`/api/readings/last/${meterId}`);
@@ -197,51 +179,50 @@ async function prefillPrevReading() {
   } catch {
     prevEl.value = 0; // chưa có chỉ số trước đó
   }
-  previewConsumption();
+  previewConsumption(type);
 }
 
-function previewConsumption() {
-  const prev = parseFloat(document.getElementById("r-prev")?.value || 0);
-  const currRaw = document.getElementById("r-curr")?.value;
+function previewConsumption(type) {
+  const electric = type === "electricity";
+  const prev = parseFloat(document.getElementById(electric ? "r-elec-prev" : "r-water-prev")?.value || 0);
+  const currRaw = document.getElementById(electric ? "r-elec-curr" : "r-water-curr")?.value;
   const curr = currRaw === "" ? NaN : parseFloat(currRaw);
-  const meter = readingMeter(parseInt(document.getElementById("r-meter")?.value));
+  const meterLabel = document.getElementById(electric ? "r-electricity-meter" : "r-water-meter");
+  const meter = readingMeter(parseInt(meterLabel?.dataset.meterId));
   const unit = meter?.unit ? ` ${meter.unit}` : "";
-  const preview = document.getElementById("r-preview");
-  const box = document.getElementById("r-preview-box");
-  const input = document.getElementById("r-curr");
+  const preview = document.getElementById(electric ? "r-elec-preview" : "r-water-preview");
+  const input = document.getElementById(electric ? "r-elec-curr" : "r-water-curr");
   if (!preview) return;
   if (isNaN(curr)) {
     preview.textContent = "—";
-    box?.classList.remove("negative");
     if (input) input.style.borderColor = "";
     return;
   }
   const diff = curr - prev;
   preview.textContent = `${fmtNumber(diff, 2)}${unit}`;
-  box?.classList.toggle("negative", diff < 0);
   if (input) input.style.borderColor = diff < 0 ? "var(--accent-red)" : "";
 }
 
 async function submitReading() {
-  const meterId = parseInt(document.getElementById("r-meter").value);
+  const householdId = document.getElementById("r-hh").value;
   const period = document.getElementById("r-period").value.trim();
-  const currRaw = document.getElementById("r-curr").value;
-  const body = {
-    meter_id: meterId,
-    period,
-    prev_reading: parseFloat(document.getElementById("r-prev").value || 0),
-    curr_reading: parseFloat(currRaw),
-  };
-  if (!body.meter_id) { showToast("Chọn đồng hồ", "warning"); return; }
-  if (!body.period) { showToast("Chọn kỳ tháng", "warning"); return; }
-  if (currRaw === "" || isNaN(body.curr_reading)) { showToast("Nhập chỉ số kỳ này", "warning"); return; }
-  if (body.curr_reading < body.prev_reading) { showToast("Chỉ số mới không được nhỏ hơn kỳ trước", "error"); return; }
-
+  if (!householdId) { showToast("Chọn hộ/phòng", "warning"); return; }
+  if (!period) { showToast("Chọn kỳ tháng", "warning"); return; }
+  const inputs = ["electricity", "water"].map(type => {
+    const electric = type === "electricity";
+    const label = document.getElementById(electric ? "r-electricity-meter" : "r-water-meter");
+    const prev = Number(document.getElementById(electric ? "r-elec-prev" : "r-water-prev").value || 0);
+    const raw = document.getElementById(electric ? "r-elec-curr" : "r-water-curr").value;
+    return { type, meter_id: Number(label?.dataset.meterId), prev_reading: prev, curr_reading: Number(raw), raw };
+  }).filter(x => x.meter_id && x.raw !== "");
+  if (!inputs.length) { showToast("Nhập ít nhất một chỉ số điện hoặc nước", "warning"); return; }
+  if (inputs.some(x => !Number.isFinite(x.curr_reading) || x.curr_reading < x.prev_reading)) { showToast("Chỉ số mới phải là số và không nhỏ hơn kỳ trước", "error"); return; }
   try {
-    await Api.post("/api/readings", body);
-    showToast("Đã nhập chỉ số thành công!", "success");
-    document.getElementById("r-curr").value = "";
-    await prefillPrevReading();
+    await Api.post("/api/readings/bulk", inputs.map(x => ({
+      meter_id: x.meter_id, period, prev_reading: x.prev_reading, curr_reading: x.curr_reading,
+    })));
+    showToast("Đã nhập chỉ số điện/nước thành công!", "success");
+    await loadMetersForReading();
     // Tải lại danh sách (giữ nguyên bộ lọc)
     const readings = await Api.get("/api/readings").catch(() => _readingData);
     _readingData = Array.isArray(readings) ? readings : _readingData;

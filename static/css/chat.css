@@ -476,3 +476,12 @@ body.chat-open .chat-fab {
   .chat-welcome-sub { margin-bottom: 16px; }
   .chat-welcome-suggest { max-width: none; }
 }
+
+/* QLPT-AI light palette */
+.chat-fab,
+.chat-header-icon,
+.chat-welcome-icon,
+.chat-send-btn { background: #2563eb; }
+.chat-header { background: #f2f6ff; }
+.chat-panel { box-shadow: 0 24px 70px rgba(15, 23, 42, 0.2), 0 0 0 1px rgba(37, 99, 235, 0.08); }
+.chat-msg code, .chat-msg pre { background: #f1f5f9; }

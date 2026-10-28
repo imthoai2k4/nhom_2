@@ -10,7 +10,7 @@ async function renderMeters() {
   c.innerHTML = `
     <div class="page-head">
       <div>
-        <h2 class="page-head-title">🔌 Quản lý Đồng hồ</h2>
+        <h2 class="page-head-title">Quản lý Đồng hồ</h2>
         <p class="page-head-sub">Theo dõi đồng hồ điện kế và đồng hồ nước đã lắp cho từng hộ.</p>
       </div>
       <div class="page-head-actions">

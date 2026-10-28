@@ -9,7 +9,7 @@ async function renderHouseholds() {
   c.innerHTML = `
     <div class="page-head">
       <div>
-        <h2 class="page-head-title">🏠 Danh sách Hộ / Phòng</h2>
+        <h2 class="page-head-title">Danh sách Hộ / Phòng</h2>
         <p class="page-head-sub">Quản lý thông tin hộ gia đình, chủ hộ và trạng thái hoạt động.</p>
       </div>
       <div class="page-head-actions">

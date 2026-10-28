@@ -29,24 +29,27 @@ def verify_credentials(username: str, password: str, db: Session) -> models.User
     Xác thực username/password.
     Ưu tiên: kiểm tra bảng users trong DB; fallback về admin mặc định từ .env.
     """
-    # Tìm trong DB trước
+    u_norm = (username or "").strip()
+    p_norm = (password or "").strip()
+
+    # Tìm trong DB trước (hỗ trợ không phân biệt hoa thường cho username)
     user = db.query(models.User).filter(
-        models.User.username == username
+        models.User.username.ilike(u_norm)
     ).first()
 
-    if user and user.is_active and verify_password(password, user.password):
+    if user and user.is_active and verify_password(p_norm, user.password):
         # Tự nâng cấp mật khẩu plaintext cũ lên PBKDF2 khi đăng nhập.
         if is_legacy_hash(user.password):
             try:
-                user.password = hash_password(password)
+                user.password = hash_password(p_norm)
                 db.commit()
             except Exception:
                 # DB read-only/locked: vẫn cho đăng nhập, lần sau thử lại.
                 db.rollback()
         return user
 
-    # Fallback: admin mặc định
-    if username == _ADMIN_USER and password == _ADMIN_PASS:
+    # Fallback: admin mặc định từ .env
+    if u_norm.lower() == _ADMIN_USER.lower() and p_norm == _ADMIN_PASS:
         # Trả về đối tượng giả không lưu DB
         fake_admin = models.User(
             id=0,

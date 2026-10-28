@@ -3,7 +3,9 @@ app/database.py
 Kết nối SQLite, tạo bảng và cung cấp session dependency cho FastAPI.
 """
 import os
+from pathlib import Path
 from sqlalchemy import create_engine, event
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import sessionmaker, declarative_base
 from dotenv import load_dotenv
 
@@ -11,9 +13,17 @@ load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./utility_mgmt.db")
 
+# Resolve relative SQLite paths from the project root, not the process CWD.
+# This keeps API and frontend launch methods attached to the same database.
+_db_url = make_url(DATABASE_URL)
+if _db_url.drivername.startswith("sqlite") and _db_url.database not in (None, ":memory:"):
+    _db_path = Path(_db_url.database)
+    if not _db_path.is_absolute():
+        _db_url = _db_url.set(database=str((Path(__file__).resolve().parent.parent / _db_path).resolve()))
+
 # SQLite cần check_same_thread=False để dùng với FastAPI (async context)
 engine = create_engine(
-    DATABASE_URL,
+    _db_url,
     connect_args={"check_same_thread": False},
     echo=False,  # Đặt True để xem SQL queries khi debug
 )

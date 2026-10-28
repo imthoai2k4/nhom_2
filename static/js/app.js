@@ -1,6 +1,6 @@
 /**
  * app.js — SPA router + shared UI helpers
- * UtilityAI · Hệ thống quản lý hóa đơn điện nước
+ * QLPT-AI · Hệ thống quản lý phòng trọ và điện nước
  *
  * Điểm chính:
  *  - Điều hướng & nội dung thay đổi theo vai trò (admin / user)
@@ -295,7 +295,7 @@ function navigate(page) {
   const crumbEl = document.getElementById("breadcrumb-current");
   if (titleEl) titleEl.textContent = title;
   if (crumbEl) crumbEl.textContent = title;
-  document.title = `${title} · UtilityAI`;
+  document.title = `${title} · QLPT-AI`;
 
   applyRoleUI();
   closeSidebar();

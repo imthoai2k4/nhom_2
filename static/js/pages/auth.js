@@ -5,8 +5,8 @@ function renderLogin() {
     <div class="auth-shell">
       <div class="auth-card">
         <div class="auth-brand">
-          <div class="auth-logo" aria-hidden="true">⚡</div>
-          <div class="auth-title">UtilityAI</div>
+          <div class="auth-logo" aria-hidden="true">Q</div>
+          <div class="auth-title">QLPT-AI</div>
           <div class="auth-sub">Hệ thống quản lý hóa đơn điện nước</div>
         </div>
 
@@ -50,6 +50,8 @@ function renderLogin() {
 function fillDemoAccount(username, password) {
   const userEl = document.getElementById("login-user");
   const passEl = document.getElementById("login-pass");
+  const errEl = document.getElementById("login-error");
+  if (errEl) errEl.style.display = "none";
   if (userEl) userEl.value = username;
   if (passEl) passEl.value = password;
   passEl?.focus();
@@ -62,14 +64,16 @@ function togglePasswordVisibility() {
 }
 
 async function doLogin() {
-  const username = document.getElementById("login-user").value.trim();
-  const password = document.getElementById("login-pass").value;
+  const username = (document.getElementById("login-user")?.value || "").trim();
+  const password = (document.getElementById("login-pass")?.value || "").trim();
   const errEl = document.getElementById("login-error");
-  errEl.style.display = "none";
+  if (errEl) errEl.style.display = "none";
 
   if (!username || !password) {
-    errEl.textContent = "Vui lòng nhập tên đăng nhập và mật khẩu";
-    errEl.style.display = "block";
+    if (errEl) {
+      errEl.textContent = "Vui lòng nhập tên đăng nhập và mật khẩu";
+      errEl.style.display = "block";
+    }
     return;
   }
 
@@ -92,8 +96,16 @@ async function doLogin() {
     if (location.hash === "#dashboard") handleRoute();
     else location.hash = "#dashboard";
   } catch (e) {
-    errEl.textContent = e.detail || "Tên đăng nhập hoặc mật khẩu không đúng";
-    errEl.style.display = "block";
+    if (errEl) {
+      // Phân biệt lỗi mất kết nối máy chủ vs lỗi sai mật khẩu
+      const isNetworkErr = (!e.status || e.name === "TypeError" || String(e.message || "").toLowerCase().includes("fetch"));
+      if (isNetworkErr) {
+        errEl.textContent = "Không thể kết nối máy chủ. Vui lòng đảm bảo server (python main.py) đang chạy.";
+      } else {
+        errEl.textContent = e.detail || e.message || "Tên đăng nhập hoặc mật khẩu không đúng";
+      }
+      errEl.style.display = "block";
+    }
     if (btn) { btn.disabled = false; btn.innerHTML = "🔑 Đăng nhập"; }
   }
 }

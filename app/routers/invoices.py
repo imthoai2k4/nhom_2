@@ -2,12 +2,13 @@
 from typing import Optional
 from datetime import date, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.auth import get_current_user, require_admin, get_household_filter
 from app.schemas import InvoiceCreate, InvoiceStatusUpdate, InvoiceOut
 from app import models
-from app.services.billing import generate_invoice_items
+from app.services.billing import generate_invoice_items, get_active_prices
 from app.routers.ai_analysis import clear_ai_cache
 
 router = APIRouter()
@@ -92,6 +93,10 @@ def _do_generate(db: Session, household_id: int, period: str, creator_id: int) -
         raise HTTPException(400, f"Chưa có chỉ số kỳ {period} cho hộ này")
 
     period_date = _parse_period_date(period)
+    if elec_reading and elec_reading.consumption > 0 and not get_active_prices(db, "electricity", period_date):
+        raise HTTPException(400, f"Chưa có đơn giá điện áp dụng cho kỳ {period}")
+    if water_reading and water_reading.consumption > 0 and not get_active_prices(db, "water", period_date):
+        raise HTTPException(400, f"Chưa có đơn giá nước áp dụng cho kỳ {period}")
     items_data, elec_total, water_total = generate_invoice_items(
         db, elec_reading, water_reading, period_date
     )
@@ -127,8 +132,15 @@ def generate_invoice(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(require_admin),
 ):
-    inv = _do_generate(db, body.household_id, body.period, current_user.id)
-    db.commit()
+    try:
+        inv = _do_generate(db, body.household_id, body.period, current_user.id)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(409, f"Hóa đơn kỳ {body.period} đã tồn tại hoặc dữ liệu liên kết không hợp lệ")
+    except Exception:
+        db.rollback()
+        raise
     clear_ai_cache()
     db.refresh(inv)
     return inv
@@ -148,10 +160,13 @@ def generate_all_invoices(
     created, skipped = [], []
     for hh in households:
         try:
-            _do_generate(db, hh.id, period, current_user.id)
+            with db.begin_nested():
+                inv = _do_generate(db, hh.id, period, current_user.id)
             created.append(hh.name)
         except HTTPException as e:
             skipped.append({"name": hh.name, "reason": e.detail})
+        except IntegrityError:
+            skipped.append({"name": hh.name, "reason": f"Hóa đơn kỳ {period} đã tồn tại hoặc dữ liệu liên kết không hợp lệ"})
 
     db.commit()
     clear_ai_cache()
@@ -180,7 +195,11 @@ def delete_invoice(iid: int, db: Session = Depends(get_db), _=Depends(require_ad
         raise HTTPException(404, "Không tìm thấy hóa đơn")
     if db.query(models.Payment).filter(models.Payment.invoice_id == iid).count():
         raise HTTPException(409, "Hóa đơn đã có thanh toán, không thể xóa")
-    db.delete(inv)
-    db.commit()
+    try:
+        db.delete(inv)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     clear_ai_cache()
     return {"message": "Đã xóa hóa đơn"}

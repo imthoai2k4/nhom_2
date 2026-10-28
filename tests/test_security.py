@@ -66,3 +66,23 @@ def test_TC_SEC_005_rate_limiter_isolated_by_key():
     limiter = RateLimiter(limit=1, window_seconds=60)
     limiter.check("a")
     limiter.check("b")
+
+
+def test_TC_SEC_006_case_insensitive_and_whitespace_strip():
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    db = Session()
+    db.add(models.User(
+        id=1, username="admin", password=hash_password("admin123"),
+        full_name="Admin User", role="admin",
+    ))
+    db.commit()
+
+    # Thử chữ hoa, khoảng trắng đầu/cuối
+    u1 = verify_credentials(" Admin ", " admin123 ", db)
+    assert u1.username == "admin"
+
+    u2 = verify_credentials("ADMIN", "admin123", db)
+    assert u2.username == "admin"
+    db.close()

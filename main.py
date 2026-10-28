@@ -1,5 +1,5 @@
 """
-Đề tài 48 — Hệ thống Quản lý Hóa đơn Điện nước Hộ gia đình có Tích hợp AI
+QLPT-AI — Quản lý phòng trọ và điện nước tích hợp AI
 Khởi chạy: python main.py
 """
 import os
@@ -43,7 +43,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Hệ thống Quản lý Hóa đơn Điện nước",
+    title="QLPT-AI — Quản lý phòng trọ và điện nước",
     description="Quản lý chỉ số, hóa đơn, thanh toán và phân tích AI",
     version="1.0.0",
     lifespan=lifespan,
@@ -53,7 +53,7 @@ _cors_origins = [
     origin.strip()
     for origin in os.getenv(
         "CORS_ORIGINS",
-        "http://localhost:8000,http://127.0.0.1:8000",
+        "http://localhost:8000,http://127.0.0.1:8000,http://localhost:5500,http://127.0.0.1:5500,http://localhost:5173,http://127.0.0.1:5173",
     ).split(",")
     if origin.strip()
 ]
@@ -110,12 +110,16 @@ app.include_router(chat.router,          prefix="/api/chat",       tags=["Chat A
 
 # ── Static files ─────────────────────────────────────────────────────────────
 static_dir = os.path.join(os.path.dirname(__file__), "static")
-if os.path.exists(static_dir):
+serve_frontend = os.getenv("SERVE_FRONTEND", "1") != "0"
+if serve_frontend and os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
+    if not serve_frontend:
+        api_port = os.getenv("UTILITY_API_PORT", "8001")
+        return HTMLResponse(content=f"<h1>QLPT-AI API is running</h1><p>Frontend: http://localhost:5500</p><p>API docs: <a href='http://localhost:{api_port}/docs'>API docs</a></p>")
     index_path = os.path.join(static_dir, "index.html")
     if os.path.exists(index_path):
         with open(index_path, encoding="utf-8") as f:
@@ -131,7 +135,7 @@ async def health_check():
 @app.get("/api/info")
 async def system_info():
     return {
-        "name": "Hệ thống Quản lý Hóa đơn Điện nước",
+        "name": "QLPT-AI — Quản lý phòng trọ và điện nước",
         "version": "1.0.0",
         "phase": "KT2 — CRUD API và Frontend",
         "db": os.getenv("DATABASE_URL", "sqlite:///./utility_mgmt.db"),
@@ -139,7 +143,9 @@ async def system_info():
 
 
 if __name__ == "__main__":
-    import webbrowser, threading
-    # Mở trình duyệt với tham số phiên bản để không dùng lại HTML cũ trong cache
-    threading.Timer(1.5, lambda: webbrowser.open("http://localhost:8000/?v=1.2.0")).start()
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(
+        "main:app",
+        host=os.getenv("UTILITY_API_HOST", "0.0.0.0"),
+        port=int(os.getenv("UTILITY_API_PORT", "8001")),
+        reload=os.getenv("UTILITY_API_RELOAD", "0") == "1",
+    )

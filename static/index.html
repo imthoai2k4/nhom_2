@@ -4,23 +4,23 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="Hệ thống quản lý hóa đơn điện nước hộ gia đình tích hợp AI — theo dõi chỉ số, hóa đơn, thanh toán và phân tích tiêu thụ." />
-  <meta name="theme-color" content="#0a0f18" />
-  <title>Quản lý Điện Nước | UtilityAI</title>
+  <meta name="theme-color" content="#ffffff" />
+  <title>QLPT-AI | Quản lý điện nước</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/css/style.css?v=1.2.0" />
-  <link rel="stylesheet" href="/static/css/chat.css?v=1.2.1" />
+  <link rel="stylesheet" href="/static/css/style.css?v=2.0.0" />
+  <link rel="stylesheet" href="/static/css/chat.css?v=2.0.0" />
 </head>
 <body>
   <!-- Sidebar Navigation -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
-      <a class="logo" href="#dashboard" aria-label="UtilityAI — về Dashboard">
-        <span class="logo-mark">⚡</span>
+      <a class="logo" href="#dashboard" aria-label="QLPT-AI — về Tổng quan">
+        <span class="logo-mark" aria-hidden="true">Q</span>
         <span class="logo-text">
-          <span class="logo-title">UtilityAI</span>
-          <span class="logo-subtitle">Quản lý Điện Nước · v1.2</span>
+          <span class="logo-title">QLPT-AI</span>
+          <span class="logo-subtitle">Quản lý phòng trọ · Điện nước</span>
         </span>
       </a>
     </div>
@@ -29,7 +29,6 @@
       <div class="nav-group">
         <span class="nav-group-label">Tổng quan</span>
         <a href="#dashboard" class="nav-item active" id="nav-dashboard">
-          <span class="nav-icon" aria-hidden="true">📊</span>
           <span>Tổng quan</span>
         </a>
       </div>
@@ -37,15 +36,12 @@
       <div class="nav-group">
         <span class="nav-group-label" data-label-admin="Nghiệp vụ" data-label-user="Dữ liệu của tôi">Nghiệp vụ</span>
         <a href="#households" class="nav-item" id="nav-households" data-admin-only>
-          <span class="nav-icon" aria-hidden="true">🏠</span>
           <span>Hộ / Phòng</span>
         </a>
         <a href="#meters" class="nav-item" id="nav-meters" data-admin-only>
-          <span class="nav-icon" aria-hidden="true">🔌</span>
           <span>Đồng hồ</span>
         </a>
         <a href="#readings" class="nav-item" id="nav-readings">
-          <span class="nav-icon" aria-hidden="true">📝</span>
           <span>Chỉ số</span>
         </a>
       </div>
@@ -53,15 +49,12 @@
       <div class="nav-group">
         <span class="nav-group-label" data-label-admin="Tài chính" data-label-user="Hóa đơn &amp; thanh toán">Tài chính</span>
         <a href="#invoices" class="nav-item" id="nav-invoices">
-          <span class="nav-icon" aria-hidden="true">🧾</span>
           <span>Hóa đơn</span>
         </a>
         <a href="#payments" class="nav-item" id="nav-payments">
-          <span class="nav-icon" aria-hidden="true">💳</span>
           <span>Thanh toán</span>
         </a>
         <a href="#prices" class="nav-item" id="nav-prices" data-admin-only>
-          <span class="nav-icon" aria-hidden="true">💰</span>
           <span>Đơn giá</span>
         </a>
       </div>
@@ -69,7 +62,6 @@
       <div class="nav-group">
         <span class="nav-group-label">Trợ lý AI</span>
         <a href="#ai" class="nav-item" id="nav-ai">
-          <span class="nav-icon" aria-hidden="true">🤖</span>
           <span>Phân tích AI</span>
           <span class="badge-new">AI</span>
         </a>
@@ -98,7 +90,7 @@
         <button class="menu-toggle" type="button" onclick="toggleSidebar()" aria-label="Mở menu điều hướng">☰</button>
         <div class="topbar-heading">
           <nav class="breadcrumb" aria-label="Breadcrumb">
-            <span>UtilityAI</span>
+            <span>QLPT-AI</span>
             <span class="breadcrumb-sep">/</span>
             <span class="breadcrumb-current" id="breadcrumb-current">Dashboard</span>
           </nav>
@@ -109,7 +101,7 @@
         <span class="scope-chip" id="scope-chip" hidden></span>
         <span class="topbar-date" id="topbar-date"></span>
         <button class="btn btn-secondary btn-sm" type="button" onclick="Chat.togglePanel()" title="Mở trợ lý AI">
-          🤖 <span class="label">Trợ lý AI</span>
+          <span class="label">Trợ lý AI</span>
         </button>
         <div class="system-status" id="system-status" title="Trạng thái kết nối">
           <span class="status-dot" aria-hidden="true"></span>
@@ -134,16 +126,17 @@
   <div class="toast-container" id="toast-container" aria-live="polite"></div>
 
   <!-- Scripts -->
-  <script src="/static/js/api.js?v=1.2.0"></script>
-  <script src="/static/js/pages/auth.js?v=1.2.0"></script>
-  <script src="/static/js/pages/households.js?v=1.2.0"></script>
-  <script src="/static/js/pages/meters.js?v=1.2.0"></script>
-  <script src="/static/js/pages/readings.js?v=1.2.0"></script>
-  <script src="/static/js/pages/prices.js?v=1.2.0"></script>
-  <script src="/static/js/pages/invoices.js?v=1.2.0"></script>
-  <script src="/static/js/pages/payments.js?v=1.2.0"></script>
-  <script src="/static/js/pages/ai.js?v=1.2.0"></script>
-  <script src="/static/js/pages/chat.js?v=1.2.1"></script>
-  <script src="/static/js/app.js?v=1.2.0"></script>
+  <script>window.API_BASE_URL = new URLSearchParams(location.search).get("api") || "http://localhost:8001";</script>
+  <script src="/static/js/api.js?v=2.0.0"></script>
+  <script src="/static/js/pages/auth.js?v=2.0.0"></script>
+  <script src="/static/js/pages/households.js?v=2.0.0"></script>
+  <script src="/static/js/pages/meters.js?v=2.0.0"></script>
+  <script src="/static/js/pages/readings.js?v=2.0.0"></script>
+  <script src="/static/js/pages/prices.js?v=2.0.0"></script>
+  <script src="/static/js/pages/invoices.js?v=2.0.0"></script>
+  <script src="/static/js/pages/payments.js?v=2.0.0"></script>
+  <script src="/static/js/pages/ai.js?v=2.0.0"></script>
+  <script src="/static/js/pages/chat.js?v=2.0.0"></script>
+  <script src="/static/js/app.js?v=2.0.0"></script>
 </body>
 </html>

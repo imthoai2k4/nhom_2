@@ -12,7 +12,7 @@ async function renderPayments() {
   c.innerHTML = `
     <div class="page-head">
       <div>
-        <h2 class="page-head-title">💳 ${isAdmin ? "Thanh toán &amp; Công nợ" : "Thanh toán của tôi"}</h2>
+        <h2 class="page-head-title">${isAdmin ? "Thanh toán &amp; Công nợ" : "Thanh toán của tôi"}</h2>
         <p class="page-head-sub">${isAdmin
           ? "Ghi nhận thanh toán hóa đơn và theo dõi công nợ của từng hộ."
           : "Theo dõi số tiền còn phải trả và lịch sử thanh toán của hộ."}</p>
