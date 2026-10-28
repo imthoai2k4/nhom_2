@@ -7,6 +7,7 @@ Bao gồm các trường hợp:
   - Dữ liệu tăng đột biến / âm / mâu thuẫn (sai / biên)
   - Không có API key → fallback nội bộ
   - Timeout / rate limit / response rỗng / response bị cắt (finish_reason=length)
+  - Output thiếu mục → retry định dạng → fallback
   - Cấu hình OpenAI-compatible: base URL, model Qwen3.8-27B
 
 Chạy: python -m pytest tests/test_ai.py -v
@@ -51,6 +52,20 @@ def _make_invoices(total_amounts, statuses=None):
             "status": st,
         })
     return invoices
+
+
+# Output hợp lệ: đủ 5 mục + đủ độ dài tối thiểu (dùng cho test completeness).
+FULL_ANALYSIS = (
+    "📊 TỔNG QUAN: Tiêu thụ điện nước của hộ ổn định trong 6 tháng gần nhất, "
+    "trung bình khoảng 150 kWh điện và 15 m³ nước mỗi tháng.\n"
+    "📈 BIẾN ĐỘNG: Tháng 7 tăng nhẹ 4% so với tháng 6, không có đột biến lớn.\n"
+    "⚠️ CẢNH BÁO: Chưa phát hiện tháng nào cần kiểm tra đặc biệt.\n"
+    "💡 GỢI Ý TIẾT KIỆM: Dùng đèn LED, tắt thiết bị khi không dùng và bảo trì đồng hồ định kỳ.\n"
+    "💰 CHI PHÍ: Hóa đơn tháng 7 khoảng 350.000đ; có thể tiết kiệm 10% nếu duy trì mức hiện tại."
+)
+
+# Output thiếu 4/5 mục nhưng vẫn đủ dài — dùng để test retry định dạng.
+PARTIAL_ANALYSIS = "📊 TỔNG QUAN: " + ("Dữ liệu tiêu thụ ổn định. " * 10)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -120,7 +135,7 @@ class TestMockAnalysis:
 # NHÓM 2: Test analyze_consumption (async, mock lớp AI client)
 # ═══════════════════════════════════════════════════════════════════════════════
 class TestAnalyzeConsumption:
-    """TC-AI-008 → TC-AI-014: Kiểm thử analyze_consumption với các lỗi AI."""
+    """TC-AI-008 → TC-AI-027: Kiểm thử analyze_consumption với các lỗi AI."""
 
     # TC-AI-008: Không có API key → fallback nội bộ, không crash
     def test_TC_AI_008_no_api_key(self):
@@ -189,7 +204,7 @@ class TestAnalyzeConsumption:
         from app.services.ai_client import ChatResult
         from app.services.ai_service import analyze_consumption
 
-        expected = "📊 TỔNG QUAN: Tiêu thụ ổn định trong 6 tháng qua, mức trung bình 150 kWh."
+        expected = FULL_ANALYSIS
         with patch("app.services.ai_service.is_configured", return_value=True), \
              patch(
                  "app.services.ai_service.chat_completion",
@@ -212,7 +227,7 @@ class TestAnalyzeConsumption:
         from app.services.ai_client import ChatResult
         from app.services.ai_service import analyze_consumption
 
-        expected = "📊 TỔNG QUAN: Đã phân tích đầy đủ sau khi tăng giới hạn token."
+        expected = FULL_ANALYSIS
         mock = AsyncMock(side_effect=[
             ChatResult(text="📊 TỔNG QUAN: ngắn", finish_reason="length"),
             ChatResult(text=expected, finish_reason="stop", model="qwen3.8-27b"),
@@ -238,6 +253,95 @@ class TestAnalyzeConsumption:
                 analyze_consumption("Phòng 114", _make_readings([100, 110]), [])
             )
         assert "giới hạn độ dài" in result.lower()
+
+    # TC-AI-023: Thiếu mục → retry định dạng; lần 2 đủ → dùng kết quả lần 2
+    def test_TC_AI_023_incomplete_retry(self):
+        """Output thiếu 4/5 mục → retry 1 lần và nhận kết quả đầy đủ."""
+        from app.services.ai_client import ChatResult
+        from app.services.ai_service import analyze_consumption_detailed
+
+        mock = AsyncMock(side_effect=[
+            ChatResult(text=PARTIAL_ANALYSIS, finish_reason="stop"),
+            ChatResult(text=FULL_ANALYSIS, finish_reason="stop", model="qwen3.8-27b"),
+        ])
+        with patch("app.services.ai_service.is_configured", return_value=True), \
+             patch("app.services.ai_service.chat_completion", new=mock):
+            result = asyncio.run(
+                analyze_consumption_detailed("Phòng 115", _make_readings([120, 130]), [])
+            )
+        assert result.text == FULL_ANALYSIS
+        assert result.source == "ai"
+        assert mock.await_count == 2, "Phải retry đúng 1 lần vì thiếu mục"
+
+    # TC-AI-024: Thiếu mục cả 2 lần → fallback, source internal
+    def test_TC_AI_024_incomplete_after_retry(self):
+        """Retry vẫn thiếu mục → fallback nội bộ và báo rõ."""
+        from app.services.ai_client import ChatResult
+        from app.services.ai_service import analyze_consumption_detailed
+
+        mock = AsyncMock(return_value=ChatResult(text=PARTIAL_ANALYSIS, finish_reason="stop"))
+        with patch("app.services.ai_service.is_configured", return_value=True), \
+             patch("app.services.ai_service.chat_completion", new=mock):
+            result = asyncio.run(
+                analyze_consumption_detailed("Phòng 116", _make_readings([100, 110]), [])
+            )
+        assert result.source == "internal"
+        assert result.fallback_reason == "incomplete"
+        assert "chưa đầy đủ" in result.text.lower()
+        assert mock.await_count == 2
+
+    # TC-AI-025: Detailed result khi chưa có key → source internal
+    def test_TC_AI_025_detailed_no_key(self):
+        """Không có key → metadata source=internal, fallback_reason=no_key."""
+        from app.services.ai_service import analyze_consumption_detailed
+
+        with patch("app.services.ai_service.is_configured", return_value=False):
+            result = asyncio.run(
+                analyze_consumption_detailed("Phòng 117", _make_readings([150, 160]), [])
+            )
+        assert result.source == "internal"
+        assert result.fallback_reason == "no_key"
+        assert "Chưa cấu hình" in result.text
+
+    # TC-AI-026: Detailed result khi AI trả đủ → metadata nguồn/model
+    def test_TC_AI_026_detailed_success_metadata(self):
+        """AI trả đủ 5 mục → source=ai, model/finish_reason/truncated đúng."""
+        from app.services.ai_client import ChatResult
+        from app.services.ai_service import analyze_consumption_detailed
+
+        mock = AsyncMock(return_value=ChatResult(
+            text=FULL_ANALYSIS,
+            finish_reason="stop",
+            model="qwen3.8-27b",
+        ))
+        with patch("app.services.ai_service.is_configured", return_value=True), \
+             patch("app.services.ai_service.chat_completion", new=mock):
+            result = asyncio.run(
+                analyze_consumption_detailed("Phòng 118", _make_readings([150, 145, 160]), [])
+            )
+        assert result.source == "ai"
+        assert result.model == "qwen3.8-27b"
+        assert result.finish_reason == "stop"
+        assert result.truncated is False
+        assert result.fallback_reason == ""
+
+    # TC-AI-027: Bị cắt cả 2 lần → metadata truncated, fallback
+    def test_TC_AI_027_detailed_truncated(self):
+        """finish_reason=length cả 2 lần → source internal, truncated=True."""
+        from app.services.ai_client import ChatResult
+        from app.services.ai_service import analyze_consumption_detailed
+
+        mock = AsyncMock(return_value=ChatResult(text="📊 ngắn", finish_reason="length"))
+        with patch("app.services.ai_service.is_configured", return_value=True), \
+             patch("app.services.ai_service.chat_completion", new=mock):
+            result = asyncio.run(
+                analyze_consumption_detailed("Phòng 119", _make_readings([100, 110]), [])
+            )
+        assert result.source == "internal"
+        assert result.truncated is True
+        assert result.fallback_reason == "truncated"
+        assert "giới hạn độ dài" in result.text.lower()
+        assert mock.await_count == 2
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

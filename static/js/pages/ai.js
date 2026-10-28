@@ -119,19 +119,32 @@ async function runAIAnalysis() {
     _aiResultText = res.analysis || "";
     const htmlContent = simpleMarkdown(_aiResultText);
 
+    const isInternal = (res.source || "internal") === "internal";
+    const isTruncated = !!res.truncated;
+    const sourceLabel = isInternal ? "Phân tích nội bộ" : (res.model || "Qwen3.8-27B");
+    const badge = isInternal
+      ? `<span class="badge badge-warning">🧠 Phân tích nội bộ</span>`
+      : isTruncated
+        ? `<span class="badge badge-warning">⚠️ Chưa đầy đủ</span>`
+        : `<span class="badge badge-success">✅ Hoàn tất</span>`;
+    const warning = (!isInternal && isTruncated)
+      ? `<div class="form-hint" style="color:var(--accent-yellow);margin-top:8px">⚠️ Phản hồi AI chưa đầy đủ 5 mục. Bạn có thể bấm “Phân tích ngay” để thử lại.</div>`
+      : "";
+
     resultDiv.innerHTML = `
       <div class="ai-response-card">
         <div class="ai-response-header">
           <div>
             <div class="ai-response-title">🤖 Kết quả phân tích · ${escapeHtml(res.household_name || "")}</div>
-            <div class="ai-response-meta">${res.data_points || 0} điểm dữ liệu · ${months} tháng · Qwen3.8-27B</div>
+            <div class="ai-response-meta">${res.data_points || 0} điểm dữ liệu · ${months} tháng · ${escapeHtml(sourceLabel)}</div>
           </div>
           <div class="meta-row">
-            <span class="badge badge-success">✅ Hoàn tất</span>
+            ${badge}
             <button class="btn btn-secondary btn-sm" type="button" onclick="copyAIResult()">📋 Sao chép</button>
           </div>
         </div>
         <div class="ai-content" id="ai-content">${htmlContent}</div>
+        ${warning}
       </div>`;
   } catch (e) {
     resultDiv.innerHTML = `

@@ -12,7 +12,7 @@ from typing import Optional
 from app.database import get_db
 from app.auth import get_current_user, get_household_filter
 from app import models
-from app.services.ai_service import analyze_consumption
+from app.services.ai_service import analyze_consumption_detailed
 
 router = APIRouter()
 
@@ -27,6 +27,10 @@ class AIAnalyzeResponse(BaseModel):
     household_name: str
     analysis: str
     data_points: int  # Số điểm dữ liệu đã phân tích
+    source: str = "internal"      # "ai" nếu gọi model, "internal" nếu fallback
+    model: str = ""
+    finish_reason: str = ""
+    truncated: bool = False
 
 
 @router.post("/analyze", response_model=AIAnalyzeResponse)
@@ -93,7 +97,7 @@ async def analyze_household(
     ]
 
     # Gọi AI phân tích
-    analysis = await analyze_consumption(
+    analysis = await analyze_consumption_detailed(
         household_name=hh.name,
         readings=readings,
         invoices=invoices,
@@ -102,6 +106,10 @@ async def analyze_household(
     return AIAnalyzeResponse(
         household_id=hh.id,
         household_name=hh.name,
-        analysis=analysis,
+        analysis=analysis.text,
         data_points=len(readings),
+        source=analysis.source,
+        model=analysis.model,
+        finish_reason=analysis.finish_reason,
+        truncated=analysis.truncated,
     )

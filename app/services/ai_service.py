@@ -7,9 +7,25 @@ Sử dụng API chuẩn OpenAI (mặc định Qwen3.8-27B tại Intern-AI):
   - Gợi ý tiết kiệm điện ở mức tham khảo
 
 Xử lý lỗi đầy đủ: timeout, rate limit (429), API key, response rỗng,
-finish_reason=length (bị cắt do giới hạn token), lỗi model.
+finish_reason=length (bị cắt do giới hạn token), thiếu mục output, lỗi model.
 """
+import logging
+import time
+from dataclasses import dataclass
+
 from app.services.ai_client import AIError, chat_completion, is_configured
+
+logger = logging.getLogger(__name__)
+
+# 5 mục bắt buộc theo SYSTEM_PROMPT — dùng để kiểm tra output có đầy đủ không.
+REQUIRED_SECTIONS = ("📊", "📈", "⚠️", "💡", "💰")
+MIN_ANALYSIS_LENGTH = 120
+
+RETRY_INSTRUCTION = (
+    "\n\nLƯU Ý: Phản hồi trước chưa đạt yêu cầu định dạng. "
+    "Hãy trả lời lại đầy đủ 5 mục có nhãn: 📊 TỔNG QUAN, 📈 BIẾN ĐỘNG, "
+    "⚠️ CẢNH BÁO, 💡 GỢI Ý TIẾT KIỆM, 💰 CHI PHÍ. Không bỏ mục nào."
+)
 
 # ── System prompt (theo đề tài 48) ──────────────────────────────────────────
 SYSTEM_PROMPT = """Bạn là trợ lý AI phân tích hóa đơn điện nước cho hệ thống quản lý hộ gia đình.
@@ -24,6 +40,28 @@ Quy tắc:
    💡 GỢI Ý TIẾT KIỆM: Đề xuất tiết kiệm điện/nước ở mức tham khảo
    💰 CHI PHÍ: Nhận xét về chi phí và cách tối ưu
 """
+
+
+@dataclass
+class AnalysisResult:
+    """Kết quả phân tích kèm metadata để UI hiển thị đúng nguồn/độ đầy đủ."""
+
+    text: str
+    source: str = "internal"          # "ai" | "internal"
+    model: str = ""
+    finish_reason: str = ""
+    truncated: bool = False
+    fallback_reason: str = ""
+
+
+def _missing_sections(text: str) -> list[str]:
+    """Trả về các mục còn thiếu trong output của model."""
+    return [section for section in REQUIRED_SECTIONS if section not in text]
+
+
+def _is_complete(text: str) -> bool:
+    """Output hợp lệ khi đủ 5 mục và đủ độ dài tối thiểu."""
+    return len(text.strip()) >= MIN_ANALYSIS_LENGTH and not _missing_sections(text)
 
 
 def _build_user_prompt(household_name: str, readings: list, invoices: list) -> str:
@@ -104,25 +142,67 @@ def _error_fallback(
     )
 
 
-async def analyze_consumption(
+async def analyze_consumption_detailed(
     household_name: str,
     readings: list,
     invoices: list,
-) -> str:
+) -> AnalysisResult:
     """
-    Gọi AI (chuẩn OpenAI) phân tích tiêu thụ điện nước.
-    Trả về chuỗi markdown nhận xét.
+    Gọi AI phân tích và trả về text + metadata (source, model, finish_reason, truncated).
+
+    Quy tắc:
+      - `finish_reason=length` → retry 1 lần với 8192 token.
+      - Thiếu mục/độ dài → retry 1 lần với nhắc định dạng.
+      - Không đạt sau retry → fallback nội bộ, source="internal".
     """
+    started = time.perf_counter()
+
+    def finish(
+        text: str,
+        *,
+        source: str = "internal",
+        model: str = "",
+        finish_reason: str = "",
+        truncated: bool = False,
+        fallback_reason: str = "",
+        usage: dict | None = None,
+    ) -> AnalysisResult:
+        elapsed_ms = int((time.perf_counter() - started) * 1000)
+        total_tokens = usage.get("total_tokens") if isinstance(usage, dict) else None
+        logger.info(
+            "ai_analysis household=%s source=%s model=%s finish=%s truncated=%s "
+            "chars=%d elapsed_ms=%d total_tokens=%s fallback=%s",
+            household_name,
+            source,
+            model or "-",
+            finish_reason or "-",
+            truncated,
+            len(text),
+            elapsed_ms,
+            total_tokens if total_tokens is not None else "-",
+            fallback_reason or "-",
+        )
+        return AnalysisResult(
+            text=text,
+            source=source,
+            model=model,
+            finish_reason=finish_reason,
+            truncated=truncated,
+            fallback_reason=fallback_reason,
+        )
+
     if not is_configured():
-        return (
+        return finish(
             "ℹ️ **Chưa cấu hình AI_API_KEY** — đang dùng phân tích nội bộ.\n\n"
-            + _mock_analysis(household_name, readings, invoices)
+            + _mock_analysis(household_name, readings, invoices),
+            fallback_reason="no_key",
         )
 
     user_prompt = _build_user_prompt(household_name, readings, invoices)
 
     try:
         result = await chat_completion(SYSTEM_PROMPT, user_prompt, temperature=0.7)
+        length_retry_done = False
 
         # Model dừng vì hết token → thử lại 1 lần với ngân sách lớn hơn.
         if result.finish_reason == "length":
@@ -132,40 +212,100 @@ async def analyze_consumption(
                 temperature=0.7,
                 max_tokens=8192,
             )
+            length_retry_done = True
+            if result.finish_reason == "length":
+                return finish(
+                    "⚠️ **Phản hồi AI bị cắt do giới hạn độ dài** — Sử dụng phân tích nội bộ:\n\n"
+                    + _mock_analysis(household_name, readings, invoices),
+                    truncated=True,
+                    finish_reason=result.finish_reason,
+                    fallback_reason="truncated",
+                    usage=result.usage,
+                )
 
         text = (result.text or "").strip()
 
         if not text:
-            return (
+            return finish(
                 "⚠️ **AI trả về kết quả rỗng** — Sử dụng phân tích nội bộ:\n\n"
-                + _mock_analysis(household_name, readings, invoices)
+                + _mock_analysis(household_name, readings, invoices),
+                finish_reason=result.finish_reason,
+                fallback_reason="empty",
+                usage=result.usage,
             )
 
-        if result.finish_reason == "length":
-            return (
-                "⚠️ **Phản hồi AI bị cắt do giới hạn độ dài** — Sử dụng phân tích nội bộ:\n\n"
-                + _mock_analysis(household_name, readings, invoices)
+        # Thiếu mục/độ dài → retry 1 lần với nhắc định dạng.
+        if not _is_complete(text) and not length_retry_done:
+            retry = await chat_completion(
+                SYSTEM_PROMPT,
+                user_prompt + RETRY_INSTRUCTION,
+                temperature=0.4,
             )
 
-        # Kiểm tra độ dài tối thiểu (< 50 ký tự = phản hồi không đủ nội dung)
-        if len(text) < 50:
-            return (
-                "⚠️ **Phản hồi AI không đủ nội dung** — Sử dụng phân tích nội bộ:\n\n"
-                + _mock_analysis(household_name, readings, invoices)
+            if retry.finish_reason == "length":
+                return finish(
+                    "⚠️ **Phản hồi AI bị cắt do giới hạn độ dài** — Sử dụng phân tích nội bộ:\n\n"
+                    + _mock_analysis(household_name, readings, invoices),
+                    truncated=True,
+                    finish_reason=retry.finish_reason,
+                    fallback_reason="truncated",
+                    usage=retry.usage,
+                )
+
+            retry_text = (retry.text or "").strip()
+            if retry_text and _is_complete(retry_text):
+                result = retry
+                text = retry_text
+            else:
+                return finish(
+                    "⚠️ **Phản hồi AI chưa đầy đủ 5 mục** — Sử dụng phân tích nội bộ:\n\n"
+                    + _mock_analysis(household_name, readings, invoices),
+                    finish_reason=retry.finish_reason or result.finish_reason,
+                    fallback_reason="incomplete",
+                    usage=retry.usage or result.usage,
+                )
+
+        if not _is_complete(text):
+            return finish(
+                "⚠️ **Phản hồi AI chưa đầy đủ 5 mục** — Sử dụng phân tích nội bộ:\n\n"
+                + _mock_analysis(household_name, readings, invoices),
+                finish_reason=result.finish_reason,
+                fallback_reason="incomplete",
+                usage=result.usage,
             )
 
-        return text
+        return finish(
+            text,
+            source="ai",
+            model=result.model,
+            finish_reason=result.finish_reason,
+            usage=result.usage,
+        )
 
     except AIError as exc:
-        return _error_fallback(exc, household_name, readings, invoices)
+        return finish(
+            _error_fallback(exc, household_name, readings, invoices),
+            fallback_reason=exc.kind,
+        )
     except Exception as exc:
         # Fallback chung cho các lỗi không xác định
         error_type = type(exc).__name__
-        return (
+        return finish(
             f"⚠️ **Lỗi không xác định khi gọi AI** (`{error_type}: {str(exc)[:100]}`)\n\n"
             "Sử dụng phân tích nội bộ:\n\n"
-            + _mock_analysis(household_name, readings, invoices)
+            + _mock_analysis(household_name, readings, invoices),
+            fallback_reason="unknown",
         )
+
+
+async def analyze_consumption(
+    household_name: str,
+    readings: list,
+    invoices: list,
+) -> str:
+    """Wrapper tương thích cũ — chỉ trả text, dùng cho test hoặc nơi không cần metadata."""
+    result = await analyze_consumption_detailed(household_name, readings, invoices)
+    return result.text
 
 
 def _mock_analysis(household_name: str, readings: list, invoices: list) -> str:

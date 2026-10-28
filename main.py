@@ -3,6 +3,7 @@
 Khởi chạy: python main.py
 """
 import os
+import logging
 from contextlib import asynccontextmanager
 
 import uvicorn
@@ -15,6 +16,11 @@ from dotenv import load_dotenv
 from app.database import init_db, SessionLocal
 
 load_dotenv()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+)
 
 
 # ── Lifespan (thay thế on_event deprecated) ──────────────────────────────────
