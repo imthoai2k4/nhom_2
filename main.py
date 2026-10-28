@@ -29,10 +29,13 @@ async def lifespan(app: FastAPI):
     """Khởi tạo DB và seed dữ liệu mẫu khi app khởi động."""
     init_db()
     from app.seed import seed_if_empty
+    from app.seed_demo import ensure_demo_history
     db = SessionLocal()
     try:
         if os.getenv("SEED_DEMO_DATA", "1") != "0":
             seed_if_empty(db)
+            # DB đã có dữ liệu (seed_if_empty bỏ qua) vẫn được bù lịch sử demo.
+            ensure_demo_history(db)
     finally:
         db.close()
     yield

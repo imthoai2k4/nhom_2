@@ -35,7 +35,7 @@ pytest -q
 
 ## Kết quả
 
-- `pytest -q`: **94 passed** trên môi trường hiện tại.
+- `pytest -q`: **97 passed** trên môi trường hiện tại.
 - `openai` 3.40.0 gọi được `https://discovery-api.intern-ai.org.cn/v1/chat/completions`.
 - `requirements.lock` pin top-level dependencies; nếu cần lock đầy đủ transitive, chạy
   `pip freeze > requirements.lock` trên venv sạch.

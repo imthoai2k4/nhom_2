@@ -246,7 +246,13 @@ def seed_if_empty(db):
     db.add(alert)
 
     db.commit()
-    print("[SEED] Done: 4 households | 8 meters | 7+1 price tiers | readings 3 months | 1 invoice | 1 spike alert")
+
+    # ── 9. Bổ sung lịch sử đầy đủ cho Phòng 101/102 ──────────
+    # 6 kỳ (05→10), hóa đơn T7–T9 đã thanh toán, T10 chưa thanh toán.
+    from app.seed_demo import ensure_demo_history
+    ensure_demo_history(db)
+
+    print("[SEED] Done: 4 households | 8 meters | 7+1 price tiers | lịch sử 6 kỳ (101/102) | 8 hóa đơn | 1 spike alert")
     print("[SEED] Accounts:")
     print("  admin/admin123 (admin)")
     print("  ho101/ho101 (Phong 101)")

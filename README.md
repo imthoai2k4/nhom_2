@@ -64,6 +64,19 @@ Mở http://localhost:8000.
 
 > Đổi mật khẩu trước khi triển khai thật.
 
+### Dữ liệu demo
+
+Khi khởi động, [app/seed_demo.py](app/seed_demo.py) tự bổ sung (idempotent) lịch sử 6 kỳ cho 2 hộ mẫu, kể cả DB đã có dữ liệu:
+
+| Hộ | Chỉ số | Hóa đơn đã thanh toán | Hóa đơn chưa thanh toán |
+|---|---|---|---|
+| Phòng 101 | 05–10/2026: điện 72–81 kWh, nước 14–17 m³ | T7: 255.174đ · T8: 267.638đ · T9: 244.675đ | T10: 230.245đ |
+| Phòng 102 | 05–10/2026: điện 95→180→118 kWh (spike T7 rồi giảm), nước 20–35 m³ | T7: 605.743đ · T8: 540.404đ · T9: 473.057đ | T10: 392.022đ |
+
+- Mỗi hóa đơn có đầy đủ `invoice_items` theo bậc thang EVN + VAT và lịch sử `payments`.
+- Hóa đơn T10 còn nợ giúp dashboard công nợ và AI phân tích chi phí/thanh toán.
+- Dữ liệu 6 kỳ đủ cho AI so sánh xu hướng, phát hiện spike T7 của Phòng 102 và nhận xét chi phí.
+
 ## Cấu hình `.env`
 
 ```env
@@ -90,7 +103,7 @@ SEED_DEMO_DATA=1
 python -m pytest -q
 ```
 
-Kết quả hiện tại: **94 passed**. Chi tiết: [docs/test-report.md](docs/test-report.md).
+Kết quả hiện tại: **97 passed**. Chi tiết: [docs/test-report.md](docs/test-report.md).
 
 ## API chính
 

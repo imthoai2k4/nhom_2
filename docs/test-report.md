@@ -2,7 +2,7 @@
 
 **Ngày chạy:** 2026-10-28  
 **Lệnh:** `python -m pytest -q`  
-**Kết quả:** **94 passed** (0 failed)
+**Kết quả:** **97 passed** (0 failed)
 
 ## 1. Tổng hợp theo file
 
@@ -15,7 +15,8 @@
 | `tests/test_billing.py` | 6 | Bậc thang EVN, VAT, nước |
 | `tests/test_alerts.py` | 5 | Ngưỡng 49/50/51%, thiếu lịch sử, avg = 0 |
 | `tests/test_security.py` | 5 | Hash/verify, legacy migration, rate limiter |
-| **Tổng** | **94** | |
+| `tests/test_seed_demo.py` | 3 | Dữ liệu demo 6 kỳ, idempotent, cộng đủ thanh toán/công nợ |
+| **Tổng** | **97** | |
 
 ## 2. Nhóm theo mục tiêu
 

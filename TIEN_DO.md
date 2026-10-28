@@ -36,7 +36,7 @@ Dưới đây là tổng hợp các giai đoạn phát triển và các tính n�
   - V1 → V2 → V3: điểm chất lượng tăng từ 3/10 lên 9/10.
   - Áp dụng system/user prompt phân tách, ràng buộc output, gắn gợi ý với dữ liệu thực.
 - [x] **Kiểm thử tự động** (`tests/test_ai.py`, `tests/test_chat_ai.py`, `tests/test_api_ai.py`, `tests/test_billing.py`, `tests/test_alerts.py`, `tests/test_security.py`, `tests/test_crud.py`):
-  - **94 test cases** (39 AI + 55 API/CRUD/Billing/Alert/Security) — tất cả PASSED.
+  - **97 test cases** (39 AI + 58 API/CRUD/Billing/Alert/Security/Seed) — tất cả PASSED.
   - Bao gồm: đúng/sai/biên, rate limit, finish_reason=length, thiếu mục output, fallback DESC, chat AI, RBAC, cache, hash, CORS.
 - [x] **AI Code Review** (`ai_code_review.md`):
   - Dùng AI review toàn bộ backend: phát hiện 6 lỗi (tương thích thư viện, xử lý lỗi, bảo mật, phân quyền).
@@ -44,4 +44,4 @@ Dưới đây là tổng hợp các giai đoạn phát triển và các tính n�
 - [x] **P1/P2 hoàn thiện**: prompt tách file, test API/billing/alert, hash PBKDF2, CORS/rate limit/headers, cache/cooldown, README, slide, deploy, backup.
 
 ---
-**Trạng thái hiện tại:** Đã tích hợp AI chuẩn OpenAI (Qwen3.8-27B), hoàn thành P0 + P1 + P2, **94 test pass**; sẵn sàng demo. Các mục production-only (JWT/session, deploy thật, diễn tập demo) được ghi chú trong [MUC_CON_THIEU.md](MUC_CON_THIEU.md) và `deploy/README.md`.
+**Trạng thái hiện tại:** Đã tích hợp AI chuẩn OpenAI (Qwen3.8-27B), hoàn thành P0 + P1 + P2, **97 test pass**; sẵn sàng demo. Các mục production-only (JWT/session, deploy thật, diễn tập demo) được ghi chú trong [MUC_CON_THIEU.md](MUC_CON_THIEU.md) và `deploy/README.md`.

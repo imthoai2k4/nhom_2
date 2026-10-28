@@ -23,7 +23,7 @@
 
 - [x] Toàn bộ P0 pass, có test hồi quy.
 - [x] P1-01 → P1-10 pass (trừ mục production-only đã ghi chú).
-- [x] Chạy đủ ma trận test ở mục 5, không còn test fail (94 passed).
+- [x] Chạy đủ ma trận test ở mục 5, không còn test fail (97 passed).
 - [ ] Hoàn tất DEP-01 → DEP-10 (config đã có trong `deploy/`, chưa chạy trên server thật).
 - [ ] Diễn tập demo 2 lần trên DB sạch.
 
@@ -40,7 +40,7 @@
 | 5 | Dùng dữ liệu hệ thống + kiểm soát quyền | ✅ Đạt | N kỳ + hóa đơn + alert + ngưỡng; RBAC 403 cho user không hộ | P1-05, P1-09 |
 | 6 | Hiển thị kết quả AI rõ ràng | ✅ Đạt | Live 5/5 mục; badge nguồn/kỳ/prompt/thời điểm/cache | P1-03 |
 | 7 | Xử lý lỗi và giới hạn AI | ✅ Đạt | Validate `months` 1–12, prompt 6k, output 4k, retry/fallback, cache/cooldown, Retry-After | P1-01, P1-10 |
-| 8 | Kiểm thử chức năng quản lý và AI | ✅ Đạt | 94 test: API, billing, alert, chat, security + manual checklist | P1-06, P2-04 |
+| 8 | Kiểm thử chức năng quản lý và AI | ✅ Đạt | 97 test: API, billing, alert, chat, security + manual checklist | P1-06, P2-04 |
 | 9 | AI review code + cải thiện chất lượng | ✅ Đạt | Hash PBKDF2, CORS allowlist, rate limit, headers; evidence `docs/ai-review/` | P1-08, P2-03 |
 | 10 | Tích hợp AI với trải nghiệm người dùng | ✅ Đạt | Chat general dùng AI có context lọc quyền; intent tra cứu vẫn rule-based, không lẫn chức năng quản lý | — |
 
@@ -245,7 +245,7 @@ Thử cùng prompt: `max_output_tokens=1024` → `finish_reason=2` (MAX_TOKENS),
 
 ### P1-06 — Bổ sung test thực chất
 
-**Hiện trạng:** **94 test pass**. Đã bổ sung TestClient API, test billing thật, test alert theo ngưỡng, manual checklist và sửa test bậc thang sai giá.
+**Hiện trạng:** **97 test pass**. Đã bổ sung TestClient API, test billing thật, test alert theo ngưỡng, manual checklist và sửa test bậc thang sai giá.
 
 **Việc cần làm:**
 
@@ -273,7 +273,7 @@ Thử cùng prompt: `max_output_tokens=1024` → `finish_reason=2` (MAX_TOKENS),
 ### P1-07 — Đồng bộ tài liệu với code
 
 **Hiện trạng:**
-- [TIEN_DO.md](TIEN_DO.md) đã cập nhật 94 test và trạng thái thật.
+- [TIEN_DO.md](TIEN_DO.md) đã cập nhật 97 test và trạng thái thật.
 - [ai_code_review.md](ai_code_review.md) nói đã thêm timeout cho chat; hiện timeout 30s nằm trong `ai_client` (đã đúng hướng).
 - [prompt_optimization.md:107](prompt_optimization.md#L107) nói có ngưỡng 20%, code không có.
 
@@ -462,7 +462,7 @@ Thử cùng prompt: `max_output_tokens=1024` → `finish_reason=2` (MAX_TOKENS),
 - [x] P0-01: tăng token + check `finish_reason` + validate 5 mục (đã xong 2026-10-28).
 - [x] P0-02: sửa chiều so sánh fallback + test hồi quy (đã xong 2026-10-28).
 - [x] P0-03: chọn hướng A/C (hybrid) và triển khai (đã xong 2026-10-28).
-- [x] Chạy lại toàn bộ test; ghi kết quả (94 passed).
+- [x] Chạy lại toàn bộ test; ghi kết quả (97 passed).
 
 ### Ngày 2 — Đúng yêu cầu và đủ test
 
@@ -486,7 +486,7 @@ Một mục chỉ được coi là xong khi:
 
 - [x] Code đã sửa và chạy được trên môi trường hiện tại.
 - [x] Có test tự động hoặc bước manual tương ứng, đã chạy pass.
-- [x] Không tạo regression ở 94 test cũ.
+- [x] Không tạo regression ở 97 test cũ.
 - [x] Tài liệu/hồ sơ liên quan đã cập nhật.
 - [x] Có bằng chứng (log, ảnh, commit) lưu trong `docs/`.
 
@@ -559,7 +559,7 @@ Invoke-RestMethod "http://localhost:8000/api/ai/analyze" -Method Post -Headers $
 
 ---
 
-**Ghi chú cuối:** Các kết luận trong tài liệu này được kiểm chứng bằng cách chạy `pytest` (94 test pass), gọi AI thật (Qwen3.8-27B) qua `POST /api/ai/analyze` và chat, kiểm tra phân quyền với tài khoản `ho101`, và kiểm tra trực tiếp `_mock_analysis`/`process_message`.
+**Ghi chú cuối:** Các kết luận trong tài liệu này được kiểm chứng bằng cách chạy `pytest` (97 test pass), gọi AI thật (Qwen3.8-27B) qua `POST /api/ai/analyze` và chat, kiểm tra phân quyền với tài khoản `ho101`, và kiểm tra trực tiếp `_mock_analysis`/`process_message`.
 
 ---
 
@@ -593,4 +593,4 @@ Invoke-RestMethod "http://localhost:8000/api/ai/analyze" -Method Post -Headers $
 - **2026-10-28 — Hoàn thành P1/P2:**
   - P1: validate `months` 1–12, prompt 6k/output 4k, ngưỡng 50% + alert, prompt_version/kỳ/thời điểm, RBAC no-household 403, cache/cooldown, test API/billing/alert, hash PBKDF2/CORS/rate limit/headers.
   - P2: prompt tách `prompts/` + loader, experiment CSV/transcript, minh chứng AI review, README/manual/test report, slide 12 trang, requirements.lock, backup/WAL/seed guard, deploy Nginx/systemd/logrotate.
-  - Test: **94 passed**.
+  - Test: **97 passed**.

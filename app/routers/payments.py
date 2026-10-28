@@ -79,6 +79,43 @@ def create_payment(
 
 # ── Báo cáo ─────────────────────────────────────────────────────────────────
 
+def _debt_query(db: Session):
+    """
+    Query công nợ theo hộ.
+
+    Thanh toán được gộp theo hóa đơn trước khi join để tránh lỗi SQLite:
+    một subquery tương quan đặt trong SUM() của query có GROUP BY chỉ trả
+    về thanh toán của một hóa đơn bất kỳ (thường là hóa đơn đầu tiên).
+    """
+    paid_by_invoice = (
+        db.query(
+            models.Payment.invoice_id.label("invoice_id"),
+            func.sum(models.Payment.amount_paid).label("paid"),
+        )
+        .group_by(models.Payment.invoice_id)
+        .subquery()
+    )
+    return (
+        db.query(
+            models.Household.id,
+            models.Household.name,
+            models.Household.owner_name,
+            func.coalesce(func.sum(models.Invoice.total_amount), 0).label("total_invoiced"),
+            func.coalesce(func.sum(paid_by_invoice.c.paid), 0).label("total_paid"),
+        )
+        .outerjoin(models.Invoice, models.Invoice.household_id == models.Household.id)
+        .outerjoin(
+            paid_by_invoice,
+            paid_by_invoice.c.invoice_id == models.Invoice.id,
+        )
+        .group_by(
+            models.Household.id,
+            models.Household.name,
+            models.Household.owner_name,
+        )
+    )
+
+
 @router.get("/reports/debt")
 def debt_report(
     household_id: Optional[int] = Query(None),
@@ -86,22 +123,7 @@ def debt_report(
     current_user: models.User = Depends(get_current_user),
 ):
     """Công nợ theo hộ: tổng hóa đơn, đã trả, còn nợ."""
-    q = (
-        db.query(
-            models.Household.id,
-            models.Household.name,
-            models.Household.owner_name,
-            func.coalesce(func.sum(models.Invoice.total_amount), 0).label("total_invoiced"),
-            func.coalesce(
-                db.query(func.sum(models.Payment.amount_paid))
-                .filter(models.Payment.invoice_id == models.Invoice.id)
-                .correlate(models.Invoice)
-                .scalar_subquery(), 0
-            ).label("total_paid"),
-        )
-        .outerjoin(models.Invoice, models.Invoice.household_id == models.Household.id)
-        .group_by(models.Household.id)
-    )
+    q = _debt_query(db)
     # User chỉ thấy công nợ hộ mình
     hh_filter = get_household_filter(current_user)
     if hh_filter is not None:
